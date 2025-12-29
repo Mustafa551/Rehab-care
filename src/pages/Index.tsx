@@ -3,18 +3,18 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 
 const Index = () => {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isInitialLoading } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!isLoading) {
+    if (!isInitialLoading) {
       if (isAuthenticated) {
         navigate('/dashboard');
       } else {
         navigate('/login');
       }
     }
-  }, [isAuthenticated, isLoading, navigate]);
+  }, [isAuthenticated, isInitialLoading, navigate]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">

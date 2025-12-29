@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigationGuard } from '@/hooks/useNavigationGuard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Heart, Mail, Lock, AlertCircle } from 'lucide-react';
+import { Heart, Mail, Lock, AlertCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function Login() {
@@ -14,7 +13,6 @@ export default function Login() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { login, isAuthenticated } = useAuth();
-  const navigate = useNavigate();
   const { navigateWithoutBack } = useNavigationGuard();
 
   // Redirect if already authenticated
@@ -108,17 +106,22 @@ export default function Login() {
             </div>
 
             <Button type="submit" variant="hero" size="lg" className="w-full" disabled={isLoading}>
-              {isLoading ? 'Signing in...' : 'Sign In'}
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Signing in...
+                </>
+              ) : (
+                'Sign In'
+              )}
             </Button>
           </form>
 
           <div className="mt-6 p-4 rounded-lg bg-muted/50">
             <p className="text-xs text-muted-foreground text-center mb-2">Test Credentials</p>
             <div className="text-xs text-center text-muted-foreground">
-              <p className="mb-1">Create users in the database first:</p>
-              <p className="font-mono bg-background px-2 py-1 rounded border">
-                POST /api/v1/user
-              </p>
+              <p className="mb-1">admin@rehab.com</p>
+              <p className="mb-1">Admin12345!</p>
               <p className="mt-2 text-xs">
                 Then use those credentials to login
               </p>

@@ -8,9 +8,9 @@ interface PublicRouteProps {
 }
 
 export function PublicRoute({ children, redirectTo = '/dashboard' }: PublicRouteProps) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isInitialLoading } = useAuth();
 
-  if (isLoading) {
+  if (isInitialLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="animate-pulse text-muted-foreground">Loading...</div>

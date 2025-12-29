@@ -5,7 +5,7 @@ import { api, ApiError } from '@/lib/api';
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
-  isLoading: boolean;
+  isInitialLoading: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
 }
@@ -14,7 +14,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
 
   useEffect(() => {
     // Check for existing session
@@ -29,12 +29,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.removeItem('rehabUser');
       }
     }
-    setIsLoading(false);
+    setIsInitialLoading(false);
   }, []);
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
-    setIsLoading(true);
-    
+    // Don't set global loading state, let the component handle its own loading
     try {
       const response = await api.login(email, password);
       
@@ -55,11 +54,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         window.history.replaceState(null, '', '/dashboard');
       }
       
-      setIsLoading(false);
       return { success: true };
     } catch (error) {
-      setIsLoading(false);
-      
       if (error instanceof ApiError) {
         // Handle specific API errors
         switch (error.status) {
@@ -91,7 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider value={{ 
       user, 
       isAuthenticated: !!user, 
-      isLoading, 
+      isInitialLoading, 
       login, 
       logout 
     }}>

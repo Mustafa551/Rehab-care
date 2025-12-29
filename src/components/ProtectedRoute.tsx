@@ -7,7 +7,7 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isInitialLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -32,7 +32,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     }
   }, [isAuthenticated, navigate, location.pathname]);
 
-  if (isLoading) {
+  if (isInitialLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="animate-pulse text-muted-foreground">Loading...</div>
