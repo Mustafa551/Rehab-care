@@ -9,13 +9,14 @@ export interface Patient {
   admissionDate: string;
   condition: string;
   assignedStaffId: string | null;
+  assignedDoctorId: string | null;
   photoUrl?: string;
 }
 
 export interface StaffMember {
   id: string;
   name: string;
-  role: 'nurse' | 'caretaker' | 'therapist';
+  role: 'nurse' | 'caretaker' | 'therapist' | 'doctor';
   email: string;
   phone: string;
   photoUrl?: string;

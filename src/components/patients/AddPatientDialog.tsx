@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Plus, User, MapPin, Calendar, Stethoscope, Baby, Users } from 'lucide-react';
+import { Plus, User, MapPin, Calendar, Stethoscope, Baby, Users, UserCheck } from 'lucide-react';
 import { AgeGroup } from '@/types';
 
 interface AddPatientDialogProps {
@@ -16,7 +16,7 @@ interface AddPatientDialogProps {
 }
 
 export function AddPatientDialog({ trigger }: AddPatientDialogProps) {
-  const { patients, addPatient } = useData();
+  const { patients, addPatient, getDoctors } = useData();
   const [open, setOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -24,9 +24,11 @@ export function AddPatientDialog({ trigger }: AddPatientDialogProps) {
     condition: '',
     roomNumber: '',
     admissionDate: new Date().toISOString().split('T')[0],
+    assignedDoctorId: 'none',
   });
 
   const ageGroup: AgeGroup = parseInt(formData.age) < 18 ? 'youth' : 'adult';
+  const doctors = getDoctors();
   
   // Get available room numbers
   const occupiedRooms = patients.map(p => p.roomNumber);
@@ -51,6 +53,7 @@ export function AddPatientDialog({ trigger }: AddPatientDialogProps) {
       admissionDate: formData.admissionDate,
       condition: formData.condition,
       assignedStaffId: null,
+      assignedDoctorId: formData.assignedDoctorId === 'none' ? null : formData.assignedDoctorId || null,
     };
 
     // Add patient using context function
@@ -63,6 +66,7 @@ export function AddPatientDialog({ trigger }: AddPatientDialogProps) {
       condition: '',
       roomNumber: '',
       admissionDate: new Date().toISOString().split('T')[0],
+      assignedDoctorId: 'none',
     });
     setOpen(false);
   };
@@ -172,6 +176,29 @@ export function AddPatientDialog({ trigger }: AddPatientDialogProps) {
               </div>
 
               <div className="space-y-2">
+                <Label htmlFor="assignedDoctor">Assign Doctor</Label>
+                <Select
+                  value={formData.assignedDoctorId}
+                  onValueChange={(value) => handleInputChange('assignedDoctorId', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a doctor (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No doctor assigned</SelectItem>
+                    {doctors.map(doctor => (
+                      <SelectItem key={doctor.id} value={doctor.id}>
+                        <div className="flex items-center gap-2">
+                          <Stethoscope className="h-4 w-4" />
+                          {doctor.name}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
                 <Label htmlFor="condition">Medical Condition *</Label>
                 <Textarea
                   id="condition"
@@ -258,6 +285,16 @@ export function AddPatientDialog({ trigger }: AddPatientDialogProps) {
                     {formData.condition || 'Medical condition will appear here...'}
                   </span>
                 </div>
+
+                {formData.assignedDoctorId && formData.assignedDoctorId !== 'none' && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <UserCheck className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-muted-foreground">Doctor</span>
+                    <span className="font-medium text-foreground">
+                      {doctors.find(d => d.id === formData.assignedDoctorId)?.name || '--'}
+                    </span>
+                  </div>
+                )}
               </CardContent>
             </Card>
 

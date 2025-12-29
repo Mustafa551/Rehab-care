@@ -27,6 +27,8 @@ interface DataContextType {
   rotateStaff: () => void;
   getPatientAssignment: (patientId: string) => StaffMember | null;
   getStaffPatients: (staffId: string) => Patient[];
+  getDoctors: () => StaffMember[];
+  getPatientDoctor: (patientId: string) => StaffMember | null;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -95,6 +97,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return patients.filter(p => patientIds.includes(p.id));
   };
 
+  const getDoctors = (): StaffMember[] => {
+    return staffMembers.filter(s => s.role === 'doctor');
+  };
+
+  const getPatientDoctor = (patientId: string): StaffMember | null => {
+    const patient = patients.find(p => p.id === patientId);
+    if (!patient || !patient.assignedDoctorId) return null;
+    return staffMembers.find(s => s.id === patient.assignedDoctorId) || null;
+  };
+
   return (
     <DataContext.Provider value={{
       patients,
@@ -111,6 +123,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       rotateStaff,
       getPatientAssignment,
       getStaffPatients,
+      getDoctors,
+      getPatientDoctor,
     }}>
       {children}
     </DataContext.Provider>

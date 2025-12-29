@@ -1,16 +1,16 @@
 import { Patient, StaffMember, MealSchedule, DoctorNote, RehabProgress, StaffAssignment } from '@/types';
 
 export const patients: Patient[] = [
-  { id: 'p1', name: 'John Anderson', age: 45, ageGroup: 'adult', roomNumber: 101, admissionDate: '2024-01-15', condition: 'Post-surgery rehabilitation', assignedStaffId: null },
-  { id: 'p2', name: 'Maria Garcia', age: 62, ageGroup: 'adult', roomNumber: 102, admissionDate: '2024-02-01', condition: 'Stroke recovery', assignedStaffId: null },
-  { id: 'p3', name: 'Tommy Wilson', age: 16, ageGroup: 'youth', roomNumber: 201, admissionDate: '2024-01-20', condition: 'Sports injury rehabilitation', assignedStaffId: null },
-  { id: 'p4', name: 'Sarah Chen', age: 55, ageGroup: 'adult', roomNumber: 103, admissionDate: '2024-02-10', condition: 'Joint replacement recovery', assignedStaffId: null },
-  { id: 'p5', name: 'Emma Thompson', age: 14, ageGroup: 'youth', roomNumber: 202, admissionDate: '2024-02-05', condition: 'Physical therapy', assignedStaffId: null },
-  { id: 'p6', name: 'Robert Johnson', age: 70, ageGroup: 'adult', roomNumber: 104, admissionDate: '2024-01-28', condition: 'Cardiac rehabilitation', assignedStaffId: null },
-  { id: 'p7', name: 'Lucas Martinez', age: 17, ageGroup: 'youth', roomNumber: 203, admissionDate: '2024-02-12', condition: 'Accident recovery', assignedStaffId: null },
-  { id: 'p8', name: 'Patricia Brown', age: 48, ageGroup: 'adult', roomNumber: 105, admissionDate: '2024-02-08', condition: 'Neurological rehabilitation', assignedStaffId: null },
-  { id: 'p9', name: 'James Lee', age: 15, ageGroup: 'youth', roomNumber: 204, admissionDate: '2024-02-14', condition: 'Orthopedic rehabilitation', assignedStaffId: null },
-  { id: 'p10', name: 'Helen Davis', age: 58, ageGroup: 'adult', roomNumber: 106, admissionDate: '2024-02-03', condition: 'Pulmonary rehabilitation', assignedStaffId: null },
+  { id: 'p1', name: 'John Anderson', age: 45, ageGroup: 'adult', roomNumber: 101, admissionDate: '2024-01-15', condition: 'Post-surgery rehabilitation', assignedStaffId: null, assignedDoctorId: null },
+  { id: 'p2', name: 'Maria Garcia', age: 62, ageGroup: 'adult', roomNumber: 102, admissionDate: '2024-02-01', condition: 'Stroke recovery', assignedStaffId: null, assignedDoctorId: null },
+  { id: 'p3', name: 'Tommy Wilson', age: 16, ageGroup: 'youth', roomNumber: 201, admissionDate: '2024-01-20', condition: 'Sports injury rehabilitation', assignedStaffId: null, assignedDoctorId: null },
+  { id: 'p4', name: 'Sarah Chen', age: 55, ageGroup: 'adult', roomNumber: 103, admissionDate: '2024-02-10', condition: 'Joint replacement recovery', assignedStaffId: null, assignedDoctorId: null },
+  { id: 'p5', name: 'Emma Thompson', age: 14, ageGroup: 'youth', roomNumber: 202, admissionDate: '2024-02-05', condition: 'Physical therapy', assignedStaffId: null, assignedDoctorId: null },
+  { id: 'p6', name: 'Robert Johnson', age: 70, ageGroup: 'adult', roomNumber: 104, admissionDate: '2024-01-28', condition: 'Cardiac rehabilitation', assignedStaffId: null, assignedDoctorId: null },
+  { id: 'p7', name: 'Lucas Martinez', age: 17, ageGroup: 'youth', roomNumber: 203, admissionDate: '2024-02-12', condition: 'Accident recovery', assignedStaffId: null, assignedDoctorId: null },
+  { id: 'p8', name: 'Patricia Brown', age: 48, ageGroup: 'adult', roomNumber: 105, admissionDate: '2024-02-08', condition: 'Neurological rehabilitation', assignedStaffId: null, assignedDoctorId: null },
+  { id: 'p9', name: 'James Lee', age: 15, ageGroup: 'youth', roomNumber: 204, admissionDate: '2024-02-14', condition: 'Orthopedic rehabilitation', assignedStaffId: null, assignedDoctorId: null },
+  { id: 'p10', name: 'Helen Davis', age: 58, ageGroup: 'adult', roomNumber: 106, admissionDate: '2024-02-03', condition: 'Pulmonary rehabilitation', assignedStaffId: null, assignedDoctorId: null },
 ];
 
 export const staffMembers: StaffMember[] = [
@@ -24,6 +24,12 @@ export const staffMembers: StaffMember[] = [
   { id: 's8', name: 'Carlos Rivera', role: 'caretaker', email: 'carlos.rivera@rehab.com', phone: '555-0108', isOnDuty: true },
   { id: 's9', name: 'Sarah Miller', role: 'therapist', email: 'sarah.miller@rehab.com', phone: '555-0109', isOnDuty: true },
   { id: 's10', name: 'Kevin Brown', role: 'nurse', email: 'kevin.brown@rehab.com', phone: '555-0110', isOnDuty: true },
+  // Doctors
+  { id: 'd1', name: 'Dr. Smith', role: 'doctor', email: 'dr.smith@rehab.com', phone: '555-0201', isOnDuty: true },
+  { id: 'd2', name: 'Dr. Johnson', role: 'doctor', email: 'dr.johnson@rehab.com', phone: '555-0202', isOnDuty: true },
+  { id: 'd3', name: 'Dr. Williams', role: 'doctor', email: 'dr.williams@rehab.com', phone: '555-0203', isOnDuty: true },
+  { id: 'd4', name: 'Dr. Davis', role: 'doctor', email: 'dr.davis@rehab.com', phone: '555-0204', isOnDuty: true },
+  { id: 'd5', name: 'Dr. Martinez', role: 'doctor', email: 'dr.martinez@rehab.com', phone: '555-0205', isOnDuty: true },
 ];
 
 export const mealSchedules: MealSchedule[] = [
