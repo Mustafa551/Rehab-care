@@ -1,13 +1,19 @@
 import { useState } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { PatientCard } from '@/components/patients/PatientCard';
+import { AddPatientDialog } from '@/components/patients/AddPatientDialog';
+import { PatientDetailsDialog } from '@/components/patients/PatientDetailsDialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
-import { Search, Users, Baby } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Search, Users, Baby, Plus, UserPlus } from 'lucide-react';
+import { Patient } from '@/types';
 
 export default function Patients() {
   const { patients, getPatientAssignment } = useData();
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   const filteredPatients = patients.filter(patient =>
     patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -18,6 +24,11 @@ export default function Patients() {
   const youthPatients = filteredPatients.filter(p => p.ageGroup === 'youth');
   const adultPatients = filteredPatients.filter(p => p.ageGroup === 'adult');
 
+  const handlePatientClick = (patient: Patient) => {
+    setSelectedPatient(patient);
+    setDetailsOpen(true);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -25,13 +36,23 @@ export default function Patients() {
           <h1 className="text-2xl font-bold text-foreground">Patients</h1>
           <p className="text-muted-foreground">Manage all patients in the rehabilitation center</p>
         </div>
-        <div className="relative w-full sm:w-72">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search patients..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
+        <div className="flex items-center gap-3">
+          <div className="relative w-full sm:w-72">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search patients..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <AddPatientDialog 
+            trigger={
+              <Button className="gap-2 whitespace-nowrap">
+                <UserPlus className="h-4 w-4" />
+                Add Patient
+              </Button>
+            }
           />
         </div>
       </div>
@@ -53,16 +74,37 @@ export default function Patients() {
         </TabsList>
 
         <TabsContent value="all" className="mt-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredPatients.map((patient, index) => (
-              <div key={patient.id} style={{ animationDelay: `${index * 50}ms` }}>
-                <PatientCard
-                  patient={patient}
-                  assignedStaff={getPatientAssignment(patient.id)}
+          {filteredPatients.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredPatients.map((patient, index) => (
+                <div key={patient.id} style={{ animationDelay: `${index * 50}ms` }}>
+                  <PatientCard
+                    patient={patient}
+                    assignedStaff={getPatientAssignment(patient.id)}
+                    onClick={() => handlePatientClick(patient)}
+                  />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-foreground mb-2">No patients found</h3>
+              <p className="text-muted-foreground mb-4">
+                {searchTerm ? 'Try adjusting your search terms' : 'Get started by adding your first patient'}
+              </p>
+              {!searchTerm && (
+                <AddPatientDialog 
+                  trigger={
+                    <Button className="gap-2">
+                      <Plus className="h-4 w-4" />
+                      Add First Patient
+                    </Button>
+                  }
                 />
-              </div>
-            ))}
-          </div>
+              )}
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="youth" className="mt-6">
@@ -78,6 +120,7 @@ export default function Patients() {
                 <PatientCard
                   patient={patient}
                   assignedStaff={getPatientAssignment(patient.id)}
+                  onClick={() => handlePatientClick(patient)}
                 />
               </div>
             ))}
@@ -97,12 +140,20 @@ export default function Patients() {
                 <PatientCard
                   patient={patient}
                   assignedStaff={getPatientAssignment(patient.id)}
+                  onClick={() => handlePatientClick(patient)}
                 />
               </div>
             ))}
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Patient Details Dialog */}
+      <PatientDetailsDialog
+        patient={selectedPatient}
+        open={detailsOpen}
+        onOpenChange={setDetailsOpen}
+      />
     </div>
   );
 }

@@ -20,6 +20,7 @@ interface DataContextType {
   currentDate: string;
   
   // Actions
+  addPatient: (patient: Omit<Patient, 'id'>) => void;
   updateMealSchedule: (schedule: MealSchedule) => void;
   addDoctorNote: (note: Omit<DoctorNote, 'id'>) => void;
   updateProgress: (progress: RehabProgress) => void;
@@ -31,7 +32,7 @@ interface DataContextType {
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export function DataProvider({ children }: { children: ReactNode }) {
-  const [patients] = useState<Patient[]>(initialPatients);
+  const [patients, setPatients] = useState<Patient[]>(initialPatients);
   const [staffMembers] = useState<StaffMember[]>(initialStaff);
   const [mealSchedules, setMealSchedules] = useState<MealSchedule[]>(initialMeals);
   const [doctorNotes, setDoctorNotes] = useState<DoctorNote[]>(initialNotes);
@@ -43,6 +44,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     setAssignments(generateDailyAssignments(currentDate));
   }, [currentDate]);
+
+  const addPatient = (patientData: Omit<Patient, 'id'>) => {
+    const newPatient: Patient = {
+      ...patientData,
+      id: `p${Date.now()}`,
+    };
+    setPatients(prev => [...prev, newPatient]);
+  };
 
   const updateMealSchedule = (schedule: MealSchedule) => {
     setMealSchedules(prev => prev.map(m => m.id === schedule.id ? schedule : m));
@@ -95,6 +104,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       rehabProgress,
       assignments,
       currentDate,
+      addPatient,
       updateMealSchedule,
       addDoctorNote,
       updateProgress,

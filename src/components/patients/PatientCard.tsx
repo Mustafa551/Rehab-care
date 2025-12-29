@@ -14,7 +14,7 @@ export function PatientCard({ patient, assignedStaff, onClick }: PatientCardProp
   return (
     <Card 
       variant="interactive" 
-      className="animate-fade-in"
+      className="animate-fade-in cursor-pointer hover:shadow-lg transition-all duration-200"
       onClick={onClick}
     >
       <CardHeader className="pb-3">
