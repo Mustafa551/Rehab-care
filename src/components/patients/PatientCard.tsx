@@ -6,11 +6,11 @@ import { format } from 'date-fns';
 
 interface PatientCardProps {
   patient: Patient;
-  assignedStaff: StaffMember | null;
+  assignedDoctor: StaffMember | null;
   onClick?: () => void;
 }
 
-export function PatientCard({ patient, assignedStaff, onClick }: PatientCardProps) {
+export function PatientCard({ patient, assignedDoctor, onClick }: PatientCardProps) {
   return (
     <Card 
       variant="interactive" 
@@ -53,12 +53,12 @@ export function PatientCard({ patient, assignedStaff, onClick }: PatientCardProp
           <span className="text-muted-foreground line-clamp-2">{patient.condition}</span>
         </div>
 
-        {assignedStaff && (
+        {assignedDoctor && (
           <div className="pt-3 border-t border-border">
             <div className="flex items-center gap-2">
               <User className="h-4 w-4 text-primary" />
-              <span className="text-sm text-muted-foreground">Assigned:</span>
-              <span className="text-sm font-medium text-foreground">{assignedStaff.name}</span>
+              <span className="text-sm text-muted-foreground">Doctor:</span>
+              <span className="text-sm font-medium text-foreground">{assignedDoctor.name}</span>
             </div>
           </div>
         )}

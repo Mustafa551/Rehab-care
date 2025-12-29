@@ -19,6 +19,7 @@ export default function Staff() {
     currentDate, 
     getStaffPatients,
     getPatientAssignment,
+    getPatientDoctor,
     isLoadingStaff,
     isLoadingPatients, 
     isLoadingAssignments,
@@ -317,7 +318,7 @@ export default function Staff() {
                 <div key={patient.id} style={{ animationDelay: `${index * 50}ms` }}>
                   <PatientCard
                     patient={patient}
-                    assignedStaff={getPatientAssignment(patient.id.toString())}
+                    assignedDoctor={getPatientDoctor(patient.id.toString())}
                   />
                 </div>
               ))}

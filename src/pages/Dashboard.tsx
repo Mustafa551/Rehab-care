@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, UserCog, Activity, TrendingUp, Calendar } from 'lucide-react';
 
 export default function Dashboard() {
-  const { patients, staffMembers, rehabProgress, mealSchedules, getPatientAssignment } = useData();
+  const { patients, staffMembers, rehabProgress, mealSchedules, getPatientAssignment, getPatientDoctor } = useData();
   
   // Prevent back navigation to login
   useNavigationGuard();
@@ -75,7 +75,7 @@ export default function Dashboard() {
                   <PatientCard
                     key={patient.id}
                     patient={patient}
-                    assignedStaff={getPatientAssignment(patient.id)}
+                    assignedDoctor={getPatientDoctor(patient.id)}
                   />
                 ))}
               </div>
@@ -96,7 +96,7 @@ export default function Dashboard() {
                   <PatientCard
                     key={patient.id}
                     patient={patient}
-                    assignedStaff={getPatientAssignment(patient.id)}
+                    assignedDoctor={getPatientDoctor(patient.id)}
                   />
                 ))}
               </div>

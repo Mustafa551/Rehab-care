@@ -10,7 +10,7 @@ import { Search, Users, Baby, Plus, UserPlus } from 'lucide-react';
 import { Patient } from '@/types';
 
 export default function Patients() {
-  const { patients, getPatientAssignment } = useData();
+  const { patients, getPatientAssignment, getPatientDoctor } = useData();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -80,7 +80,7 @@ export default function Patients() {
                 <div key={patient.id} style={{ animationDelay: `${index * 50}ms` }}>
                   <PatientCard
                     patient={patient}
-                    assignedStaff={getPatientAssignment(patient.id)}
+                    assignedDoctor={getPatientDoctor(patient.id)}
                     onClick={() => handlePatientClick(patient)}
                   />
                 </div>
@@ -119,7 +119,7 @@ export default function Patients() {
               <div key={patient.id} style={{ animationDelay: `${index * 50}ms` }}>
                 <PatientCard
                   patient={patient}
-                  assignedStaff={getPatientAssignment(patient.id)}
+                  assignedDoctor={getPatientDoctor(patient.id)}
                   onClick={() => handlePatientClick(patient)}
                 />
               </div>
@@ -139,7 +139,7 @@ export default function Patients() {
               <div key={patient.id} style={{ animationDelay: `${index * 50}ms` }}>
                 <PatientCard
                   patient={patient}
-                  assignedStaff={getPatientAssignment(patient.id)}
+                  assignedDoctor={getPatientDoctor(patient.id)}
                   onClick={() => handlePatientClick(patient)}
                 />
               </div>
