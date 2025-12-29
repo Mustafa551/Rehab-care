@@ -291,10 +291,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const getStaffPatients = (staffId: string | number): Patient[] => {
-    const patientIds = assignments
-      .filter(a => a.staffId.toString() === staffId.toString())
-      .map(a => a.patientId);
-    return patients.filter(p => patientIds.includes(p.id));
+    const staff = staffMembers.find(s => s.id.toString() === staffId.toString());
+    
+    if (staff?.role === 'doctor') {
+      // For doctors, get patients with permanent doctor assignments
+      return patients.filter(p => p.assignedDoctorId?.toString() === staffId.toString());
+    } else {
+      // For other staff, get patients from daily assignments
+      const patientIds = assignments
+        .filter(a => a.staffId.toString() === staffId.toString())
+        .map(a => a.patientId);
+      return patients.filter(p => patientIds.includes(p.id.toString()));
+    }
   };
 
   const getDoctors = (): StaffMember[] => {

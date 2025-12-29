@@ -18,7 +18,6 @@ export default function Staff() {
     patients,
     currentDate, 
     getStaffPatients,
-    getPatientAssignment,
     getPatientDoctor,
     isLoadingStaff,
     isLoadingPatients, 

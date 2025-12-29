@@ -47,13 +47,16 @@ export function StaffCard({ staff, assignedPatients }: StaffCardProps) {
           <span className="text-muted-foreground">{staff.phone}</span>
         </div>
 
-        {assignedPatients.length > 0 && (
+        {assignedPatients.length > 0 ? (
           <div className="pt-3 border-t border-border">
             <div className="flex items-center gap-2 mb-2">
               <Users className="h-4 w-4 text-primary" />
               <span className="text-sm font-medium text-foreground">
-                {staff.role === 'doctor' ? 'Permanent Patients' : 'Today\'s Patients'} ({assignedPatients.length})
+                {staff.role === 'doctor' ? 'Permanent Patients' : 'Today\'s Patients'}
               </span>
+              <Badge variant="secondary" className="ml-auto">
+                {assignedPatients.length}
+              </Badge>
             </div>
             <div className="flex flex-wrap gap-1">
               {assignedPatients.map(patient => (
@@ -67,6 +70,18 @@ export function StaffCard({ staff, assignedPatients }: StaffCardProps) {
                 Doctor assignments are permanent and do not rotate
               </p>
             )}
+          </div>
+        ) : (
+          <div className="pt-3 border-t border-border">
+            <div className="flex items-center gap-2">
+              <Users className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">
+                {staff.role === 'doctor' ? 'No permanent patients' : 'No patients assigned today'}
+              </span>
+              <Badge variant="outline" className="ml-auto">
+                0
+              </Badge>
+            </div>
           </div>
         )}
       </CardContent>
