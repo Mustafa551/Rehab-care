@@ -13,6 +13,7 @@ export function StaffCard({ staff, assignedPatients }: StaffCardProps) {
     nurse: 'bg-info/10 text-info',
     caretaker: 'bg-success/10 text-success',
     therapist: 'bg-warning/10 text-warning',
+    doctor: 'bg-blue-100 text-blue-700',
   };
 
   return (

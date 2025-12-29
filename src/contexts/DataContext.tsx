@@ -21,6 +21,7 @@ interface DataContextType {
   
   // Actions
   addPatient: (patient: Omit<Patient, 'id'>) => void;
+  addStaffMember: (staff: Omit<StaffMember, 'id'>) => void;
   updateMealSchedule: (schedule: MealSchedule) => void;
   addDoctorNote: (note: Omit<DoctorNote, 'id'>) => void;
   updateProgress: (progress: RehabProgress) => void;
@@ -35,7 +36,7 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export function DataProvider({ children }: { children: ReactNode }) {
   const [patients, setPatients] = useState<Patient[]>(initialPatients);
-  const [staffMembers] = useState<StaffMember[]>(initialStaff);
+  const [staffMembers, setStaffMembers] = useState<StaffMember[]>(initialStaff);
   const [mealSchedules, setMealSchedules] = useState<MealSchedule[]>(initialMeals);
   const [doctorNotes, setDoctorNotes] = useState<DoctorNote[]>(initialNotes);
   const [rehabProgress, setRehabProgress] = useState<RehabProgress[]>(initialProgress);
@@ -53,6 +54,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
       id: `p${Date.now()}`,
     };
     setPatients(prev => [...prev, newPatient]);
+  };
+
+  const addStaffMember = (staffData: Omit<StaffMember, 'id'>) => {
+    const newStaff: StaffMember = {
+      ...staffData,
+      id: staffData.role === 'doctor' ? `d${Date.now()}` : `s${Date.now()}`,
+    };
+    setStaffMembers(prev => [...prev, newStaff]);
   };
 
   const updateMealSchedule = (schedule: MealSchedule) => {
@@ -117,6 +126,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       assignments,
       currentDate,
       addPatient,
+      addStaffMember,
       updateMealSchedule,
       addDoctorNote,
       updateProgress,

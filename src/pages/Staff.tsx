@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { StaffCard } from '@/components/staff/StaffCard';
+import { AddStaffDialog } from '@/components/staff/AddStaffDialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Search, RefreshCw, Calendar, Info } from 'lucide-react';
@@ -22,14 +23,17 @@ export default function Staff() {
           <h1 className="text-2xl font-bold text-foreground">Staff Management</h1>
           <p className="text-muted-foreground">View staff assignments and rotation schedule</p>
         </div>
-        <div className="relative w-full sm:w-72">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search staff..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
+        <div className="flex items-center gap-3">
+          <div className="relative w-full sm:w-72">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search staff..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <AddStaffDialog />
         </div>
       </div>
 
