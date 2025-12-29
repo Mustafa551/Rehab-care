@@ -18,6 +18,18 @@ export interface LoginResponse {
   };
 }
 
+export interface StaffMember {
+  id: number;
+  name: string;
+  role: 'nurse' | 'caretaker' | 'therapist' | 'doctor';
+  email: string;
+  phone: string;
+  isOnDuty: boolean;
+  photoUrl?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 class ApiError extends Error {
   constructor(
     message: string,
@@ -120,6 +132,59 @@ export const api = {
 
   deleteUser: async (userId: number) => {
     return apiRequest(`/user/${userId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  // Staff endpoints
+  getAllStaff: async (filters?: { role?: string; onDuty?: boolean }): Promise<StaffMember[]> => {
+    const params = new URLSearchParams();
+    if (filters?.role) params.append('role', filters.role);
+    if (filters?.onDuty !== undefined) params.append('onDuty', filters.onDuty.toString());
+    
+    const queryString = params.toString();
+    const endpoint = queryString ? `/staff?${queryString}` : '/staff';
+    
+    return apiRequest<StaffMember[]>(endpoint);
+  },
+
+  getStaffById: async (staffId: number): Promise<StaffMember> => {
+    return apiRequest<StaffMember>(`/staff/${staffId}`);
+  },
+
+  createStaff: async (staffData: {
+    name: string;
+    role: 'nurse' | 'caretaker' | 'therapist' | 'doctor';
+    email: string;
+    phone: string;
+    isOnDuty?: boolean;
+    photoUrl?: string;
+  }): Promise<StaffMember> => {
+    return apiRequest<StaffMember>('/staff', {
+      method: 'POST',
+      body: JSON.stringify(staffData),
+    });
+  },
+
+  updateStaff: async (
+    staffId: number,
+    staffData: Partial<{
+      name: string;
+      role: 'nurse' | 'caretaker' | 'therapist' | 'doctor';
+      email: string;
+      phone: string;
+      isOnDuty: boolean;
+      photoUrl: string;
+    }>
+  ): Promise<StaffMember> => {
+    return apiRequest<StaffMember>(`/staff/${staffId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(staffData),
+    });
+  },
+
+  deleteStaff: async (staffId: number) => {
+    return apiRequest(`/staff/${staffId}`, {
       method: 'DELETE',
     });
   },

@@ -7,7 +7,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Plus, UserPlus, Mail, Phone, Stethoscope, UserCheck, Users, Activity, Heart, Shield, Zap } from 'lucide-react';
+import { Plus, UserPlus, Mail, Phone, Stethoscope, UserCheck, Users, Activity, Heart, Shield, Zap, Loader2, AlertCircle } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface AddStaffDialogProps {
   trigger?: React.ReactNode;
@@ -16,6 +17,8 @@ interface AddStaffDialogProps {
 export function AddStaffDialog({ trigger }: AddStaffDialogProps) {
   const { addStaffMember } = useData();
   const [open, setOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     role: 'doctor' as 'nurse' | 'caretaker' | 'therapist' | 'doctor',
@@ -24,50 +27,64 @@ export function AddStaffDialog({ trigger }: AddStaffDialogProps) {
     isOnDuty: true,
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Validate form
     if (!formData.name || !formData.email || !formData.phone) {
+      setError('Please fill in all required fields');
       return;
     }
 
     // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
+      setError('Please enter a valid email address');
       return;
     }
 
     // Phone validation (basic)
     const phoneRegex = /^\d{3}-\d{4}$/;
     if (!phoneRegex.test(formData.phone)) {
+      setError('Phone number must be in format XXX-XXXX (e.g., 555-0123)');
       return;
     }
 
-    const newStaff = {
-      name: formData.name,
-      role: formData.role,
-      email: formData.email,
-      phone: formData.phone,
-      isOnDuty: formData.isOnDuty,
-    };
+    setIsLoading(true);
+    setError(null);
 
-    // Add staff using context function
-    addStaffMember(newStaff);
-    
-    // Reset form and close dialog
-    setFormData({
-      name: '',
-      role: 'doctor',
-      email: '',
-      phone: '',
-      isOnDuty: true,
-    });
-    setOpen(false);
+    try {
+      const newStaff = {
+        name: formData.name,
+        role: formData.role,
+        email: formData.email,
+        phone: formData.phone,
+        isOnDuty: formData.isOnDuty,
+      };
+
+      // Add staff using context function (which calls the API)
+      await addStaffMember(newStaff);
+      
+      // Reset form and close dialog
+      setFormData({
+        name: '',
+        role: 'doctor',
+        email: '',
+        phone: '',
+        isOnDuty: true,
+      });
+      setOpen(false);
+    } catch (error: any) {
+      setError(error.message || 'Failed to add staff member');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleInputChange = (field: string, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    // Clear error when user starts typing
+    if (error) setError(null);
   };
 
   const getRoleIcon = (role: string) => {
@@ -111,6 +128,13 @@ export function AddStaffDialog({ trigger }: AddStaffDialogProps) {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Form Section */}
           <div className="space-y-4">
+            {error && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Full Name *</Label>
@@ -120,6 +144,7 @@ export function AddStaffDialog({ trigger }: AddStaffDialogProps) {
                   onChange={(e) => handleInputChange('name', e.target.value)}
                   placeholder="Enter staff member's full name"
                   required
+                  disabled={isLoading}
                 />
               </div>
 
@@ -129,6 +154,7 @@ export function AddStaffDialog({ trigger }: AddStaffDialogProps) {
                   value={formData.role}
                   onValueChange={(value) => handleInputChange('role', value)}
                   required
+                  disabled={isLoading}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select designation" />
@@ -171,6 +197,7 @@ export function AddStaffDialog({ trigger }: AddStaffDialogProps) {
                   onChange={(e) => handleInputChange('email', e.target.value)}
                   placeholder="staff.name@rehab.com"
                   required
+                  disabled={isLoading}
                 />
                 <p className="text-xs text-muted-foreground">
                   Must be a valid email format
@@ -187,6 +214,7 @@ export function AddStaffDialog({ trigger }: AddStaffDialogProps) {
                   placeholder="555-0123"
                   pattern="[0-9]{3}-[0-9]{4}"
                   required
+                  disabled={isLoading}
                 />
                 <p className="text-xs text-muted-foreground">
                   Format: 555-0123
@@ -198,6 +226,7 @@ export function AddStaffDialog({ trigger }: AddStaffDialogProps) {
                 <Select
                   value={formData.isOnDuty ? 'on-duty' : 'off-duty'}
                   onValueChange={(value) => handleInputChange('isOnDuty', value === 'on-duty')}
+                  disabled={isLoading}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select initial status" />
@@ -220,10 +249,22 @@ export function AddStaffDialog({ trigger }: AddStaffDialogProps) {
               </div>
 
               <div className="flex gap-3 pt-4">
-                <Button type="submit" className="flex-1">
-                  Add Staff Member
+                <Button type="submit" className="flex-1" disabled={isLoading}>
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Adding Staff...
+                    </>
+                  ) : (
+                    'Add Staff Member'
+                  )}
                 </Button>
-                <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setOpen(false)}
+                  disabled={isLoading}
+                >
                   Cancel
                 </Button>
               </div>

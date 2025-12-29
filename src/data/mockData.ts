@@ -63,18 +63,23 @@ export const rehabProgress: RehabProgress[] = [
 ];
 
 // Function to generate daily staff rotation
-export function generateDailyAssignments(date: string): StaffAssignment[] {
+export function generateDailyAssignments(date: string, staffMembers?: StaffMember[]): StaffAssignment[] {
   const dateObj = new Date(date);
   const dayOfYear = Math.floor((dateObj.getTime() - new Date(dateObj.getFullYear(), 0, 0).getTime()) / (1000 * 60 * 60 * 24));
   
   const assignments: StaffAssignment[] = [];
+  const availableStaff = staffMembers || staffMembers;
+  
+  if (!availableStaff || availableStaff.length === 0) {
+    return assignments;
+  }
   
   patients.forEach((patient, index) => {
     // Rotate staff based on day of year
-    const staffIndex = (index + dayOfYear) % staffMembers.length;
+    const staffIndex = (index + dayOfYear) % availableStaff.length;
     assignments.push({
       id: `a-${patient.id}-${date}`,
-      staffId: staffMembers[staffIndex].id,
+      staffId: availableStaff[staffIndex].id.toString(),
       patientId: patient.id,
       date: date,
     });

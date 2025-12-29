@@ -14,13 +14,15 @@ export interface Patient {
 }
 
 export interface StaffMember {
-  id: string;
+  id: string | number;
   name: string;
   role: 'nurse' | 'caretaker' | 'therapist' | 'doctor';
   email: string;
   phone: string;
   photoUrl?: string;
   isOnDuty: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface StaffAssignment {
