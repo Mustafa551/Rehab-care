@@ -15,8 +15,11 @@ export default function Staff() {
     currentDate, 
     getStaffPatients, 
     isLoadingStaff, 
-    staffError, 
-    refreshStaff 
+    isLoadingAssignments,
+    staffError,
+    assignmentError, 
+    refreshStaff,
+    refreshAssignments
   } = useData();
   const [searchTerm, setSearchTerm] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -29,7 +32,7 @@ export default function Staff() {
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      await refreshStaff();
+      await Promise.all([refreshStaff(), refreshAssignments()]);
     } finally {
       setIsRefreshing(false);
     }
@@ -64,12 +67,30 @@ export default function Staff() {
         </div>
       </div>
 
-      {/* Error Alert */}
+      {/* Error Alerts */}
       {staffError && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            {staffError}
+            Staff Error: {staffError}
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="ml-2" 
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+            >
+              Try Again
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {assignmentError && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Assignment Error: {assignmentError}
             <Button 
               variant="outline" 
               size="sm" 
@@ -118,32 +139,38 @@ export default function Staff() {
           <ul className="text-sm text-muted-foreground space-y-2">
             <li className="flex items-start gap-2">
               <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-medium">1</span>
-              Each patient is assigned exactly one staff member per day
+              Each patient is assigned one rotating staff member (nurse, caretaker, therapist) per day
             </li>
             <li className="flex items-start gap-2">
               <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-medium">2</span>
-              Assignments rotate daily to ensure varied care perspectives
+              Doctors have permanent assignments and do not rotate daily
             </li>
             <li className="flex items-start gap-2">
               <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-medium">3</span>
-              Use the "Simulate Next Day" button in the header to preview tomorrow's rotation
+              Use the "Simulate Next Day" button in the header to rotate non-doctor staff assignments
             </li>
           </ul>
         </CardContent>
       </Card>
 
       {/* Loading State */}
-      {isLoadingStaff && (
+      {(isLoadingStaff || isLoadingAssignments) && (
         <div className="flex items-center justify-center py-12">
           <div className="flex items-center gap-2 text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin" />
-            <span>Loading staff members...</span>
+            <span>
+              {isLoadingStaff && isLoadingAssignments 
+                ? 'Loading staff and assignments...'
+                : isLoadingStaff 
+                ? 'Loading staff members...'
+                : 'Loading assignments...'}
+            </span>
           </div>
         </div>
       )}
 
       {/* Empty State */}
-      {!isLoadingStaff && !staffError && staffMembers.length === 0 && (
+      {!isLoadingStaff && !isLoadingAssignments && !staffError && staffMembers.length === 0 && (
         <Card>
           <CardContent className="py-12 text-center">
             <div className="space-y-4">
@@ -165,7 +192,7 @@ export default function Staff() {
       )}
 
       {/* Staff Grid */}
-      {!isLoadingStaff && filteredStaff.length > 0 && (
+      {!isLoadingStaff && !isLoadingAssignments && filteredStaff.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredStaff.map((staff, index) => (
             <div key={staff.id} style={{ animationDelay: `${index * 50}ms` }}>
@@ -179,7 +206,7 @@ export default function Staff() {
       )}
 
       {/* No Search Results */}
-      {!isLoadingStaff && staffMembers.length > 0 && filteredStaff.length === 0 && (
+      {!isLoadingStaff && !isLoadingAssignments && staffMembers.length > 0 && filteredStaff.length === 0 && (
         <Card>
           <CardContent className="py-12 text-center">
             <div className="space-y-4">

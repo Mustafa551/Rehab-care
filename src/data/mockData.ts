@@ -62,24 +62,27 @@ export const rehabProgress: RehabProgress[] = [
   { id: 'rp10', patientId: 'p10', date: '2024-02-15', milestone: 'Breathing exercises', progressPercentage: 40, notes: 'Gradual improvement' },
 ];
 
-// Function to generate daily staff rotation
+// Function to generate daily staff rotation (excludes doctors)
 export function generateDailyAssignments(date: string, staffMembers?: StaffMember[]): StaffAssignment[] {
   const dateObj = new Date(date);
   const dayOfYear = Math.floor((dateObj.getTime() - new Date(dateObj.getFullYear(), 0, 0).getTime()) / (1000 * 60 * 60 * 24));
   
   const assignments: StaffAssignment[] = [];
-  const availableStaff = staffMembers || staffMembers;
+  const availableStaff = staffMembers || [];
   
-  if (!availableStaff || availableStaff.length === 0) {
+  // Filter out doctors - they don't rotate
+  const rotatingStaff = availableStaff.filter(staff => staff.role !== 'doctor');
+  
+  if (!rotatingStaff || rotatingStaff.length === 0) {
     return assignments;
   }
   
   patients.forEach((patient, index) => {
-    // Rotate staff based on day of year
-    const staffIndex = (index + dayOfYear) % availableStaff.length;
+    // Rotate only non-doctor staff based on day of year
+    const staffIndex = (index + dayOfYear) % rotatingStaff.length;
     assignments.push({
       id: `a-${patient.id}-${date}`,
-      staffId: availableStaff[staffIndex].id.toString(),
+      staffId: rotatingStaff[staffIndex].id.toString(),
       patientId: patient.id,
       date: date,
     });

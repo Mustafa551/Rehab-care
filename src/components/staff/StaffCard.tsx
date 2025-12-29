@@ -52,7 +52,7 @@ export function StaffCard({ staff, assignedPatients }: StaffCardProps) {
             <div className="flex items-center gap-2 mb-2">
               <Users className="h-4 w-4 text-primary" />
               <span className="text-sm font-medium text-foreground">
-                Assigned Patients ({assignedPatients.length})
+                {staff.role === 'doctor' ? 'Permanent Patients' : 'Today\'s Patients'} ({assignedPatients.length})
               </span>
             </div>
             <div className="flex flex-wrap gap-1">
@@ -62,6 +62,11 @@ export function StaffCard({ staff, assignedPatients }: StaffCardProps) {
                 </Badge>
               ))}
             </div>
+            {staff.role === 'doctor' && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Doctor assignments are permanent and do not rotate
+              </p>
+            )}
           </div>
         )}
       </CardContent>

@@ -1,11 +1,10 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Patient, StaffMember, MealSchedule, DoctorNote, RehabProgress, StaffAssignment } from '@/types';
 import { 
   patients as initialPatients, 
   mealSchedules as initialMeals,
   doctorNotes as initialNotes,
-  rehabProgress as initialProgress,
-  generateDailyAssignments
+  rehabProgress as initialProgress
 } from '@/data/mockData';
 import { api, ApiError } from '@/lib/api';
 import { format } from 'date-fns';
@@ -19,7 +18,9 @@ interface DataContextType {
   assignments: StaffAssignment[];
   currentDate: string;
   isLoadingStaff: boolean;
+  isLoadingAssignments: boolean;
   staffError: string | null;
+  assignmentError: string | null;
   
   // Actions
   addPatient: (patient: Omit<Patient, 'id'>) => void;
@@ -27,12 +28,13 @@ interface DataContextType {
   updateMealSchedule: (schedule: MealSchedule) => void;
   addDoctorNote: (note: Omit<DoctorNote, 'id'>) => void;
   updateProgress: (progress: RehabProgress) => void;
-  rotateStaff: () => void;
+  rotateStaff: () => Promise<void>;
   getPatientAssignment: (patientId: string) => StaffMember | null;
   getStaffPatients: (staffId: string | number) => Patient[];
   getDoctors: () => StaffMember[];
   getPatientDoctor: (patientId: string) => StaffMember | null;
   refreshStaff: () => Promise<void>;
+  refreshAssignments: () => Promise<void>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -46,17 +48,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [assignments, setAssignments] = useState<StaffAssignment[]>([]);
   const [currentDate, setCurrentDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [isLoadingStaff, setIsLoadingStaff] = useState(true);
+  const [isLoadingAssignments, setIsLoadingAssignments] = useState(false);
   const [staffError, setStaffError] = useState<string | null>(null);
+  const [assignmentError, setAssignmentError] = useState<string | null>(null);
 
   // Load staff from backend on mount
   useEffect(() => {
     loadStaff();
   }, []);
 
-  // Generate assignments when staff or date changes
+  // Load assignments when staff loads or date changes
   useEffect(() => {
     if (staffMembers.length > 0) {
-      setAssignments(generateDailyAssignments(currentDate, staffMembers));
+      loadAssignments();
     }
   }, [currentDate, staffMembers]);
 
@@ -80,8 +84,41 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const loadAssignments = async () => {
+    try {
+      setIsLoadingAssignments(true);
+      setAssignmentError(null);
+      const backendAssignments = await api.getAssignmentsByDate(currentDate);
+      
+      // Convert backend assignments to frontend format
+      const formattedAssignments = backendAssignments.map(assignment => ({
+        id: `a-${assignment.patientId}-${assignment.date}`,
+        staffId: assignment.staffId.toString(),
+        patientId: assignment.patientId,
+        date: assignment.date,
+      }));
+      
+      setAssignments(formattedAssignments);
+    } catch (error) {
+      console.error('Failed to load assignments:', error);
+      if (error instanceof ApiError) {
+        setAssignmentError(error.message);
+      } else {
+        setAssignmentError('Failed to load assignments');
+      }
+      // Fallback to empty array on error
+      setAssignments([]);
+    } finally {
+      setIsLoadingAssignments(false);
+    }
+  };
+
   const refreshStaff = async () => {
     await loadStaff();
+  };
+
+  const refreshAssignments = async () => {
+    await loadAssignments();
   };
 
   const addPatient = (patientData: Omit<Patient, 'id'>) => {
@@ -129,11 +166,37 @@ export function DataProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const rotateStaff = () => {
-    // Move to next day and regenerate assignments
-    const nextDate = new Date(currentDate);
-    nextDate.setDate(nextDate.getDate() + 1);
-    setCurrentDate(format(nextDate, 'yyyy-MM-dd'));
+  const rotateStaff = async () => {
+    try {
+      setAssignmentError(null);
+      // Move to next day
+      const nextDate = new Date(currentDate);
+      nextDate.setDate(nextDate.getDate() + 1);
+      const nextDateString = format(nextDate, 'yyyy-MM-dd');
+      
+      // Generate assignments for the next day via API
+      const newAssignments = await api.generateAssignments(nextDateString);
+      
+      // Update the current date
+      setCurrentDate(nextDateString);
+      
+      // Convert API assignments to frontend format
+      const formattedAssignments = newAssignments.map(assignment => ({
+        id: `a-${assignment.patientId}-${assignment.date}`,
+        staffId: assignment.staffId.toString(),
+        patientId: assignment.patientId,
+        date: assignment.date,
+      }));
+      
+      setAssignments(formattedAssignments);
+    } catch (error) {
+      console.error('Failed to rotate staff:', error);
+      if (error instanceof ApiError) {
+        setAssignmentError(error.message);
+      } else {
+        setAssignmentError('Failed to rotate staff assignments');
+      }
+    }
   };
 
   const getPatientAssignment = (patientId: string): StaffMember | null => {
@@ -169,7 +232,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       assignments,
       currentDate,
       isLoadingStaff,
+      isLoadingAssignments,
       staffError,
+      assignmentError,
       addPatient,
       addStaffMember,
       updateMealSchedule,
@@ -181,6 +246,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       getDoctors,
       getPatientDoctor,
       refreshStaff,
+      refreshAssignments,
     }}>
       {children}
     </DataContext.Provider>
