@@ -104,7 +104,7 @@ export function AddPatientDialog({ trigger }: AddPatientDialogProps) {
 
       await addPatient(newPatient);
       
-      toast.success('Patient added successfully!');
+      toast.success('Patient added successfully! Staff will be automatically assigned for today.');
       
       // Reset form and close dialog
       setFormData({
@@ -375,13 +375,24 @@ export function AddPatientDialog({ trigger }: AddPatientDialogProps) {
             <Card variant="flat" className="bg-muted/50">
               <CardContent className="pt-4">
                 <div className="space-y-2">
-                  <h4 className="text-sm font-medium">Available Doctors</h4>
-                  <div className="text-xs">
-                    <span className="text-muted-foreground">Total doctors:</span>
-                    <span className="ml-1 font-medium">{doctors.length}</span>
+                  <h4 className="text-sm font-medium">Assignment Information</h4>
+                  <div className="text-xs space-y-1">
+                    <div>
+                      <span className="text-muted-foreground">Available doctors:</span>
+                      <span className="ml-1 font-medium">{doctors.length}</span>
+                    </div>
+                    <p className="text-muted-foreground">
+                      • Doctor assignment is permanent (optional)
+                    </p>
+                    <p className="text-muted-foreground">
+                      • Nurse/caretaker will be auto-assigned for today
+                    </p>
+                    <p className="text-muted-foreground">
+                      • Non-doctor staff rotate daily
+                    </p>
                   </div>
                   {doctors.length === 0 && (
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded">
                       No doctors available. Add doctors from the Staff page first.
                     </p>
                   )}

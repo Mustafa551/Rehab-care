@@ -102,24 +102,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setIsLoadingAssignments(true);
       setAssignmentError(null);
       
-      // First try to get existing assignments for current date
-      let backendAssignments = await api.getAssignmentsByDate(currentDate);
-      
-      // If no assignments exist for current date, generate them
-      if (backendAssignments.length === 0) {
-        console.log('No assignments found for current date, generating new assignments...');
-        backendAssignments = await api.generateAssignments(currentDate);
-      }
+      // Always generate assignments for current date to ensure all patients are assigned
+      console.log('Generating assignments for current date:', currentDate);
+      const backendAssignments = await api.generateAssignments(currentDate);
       
       // Convert backend assignments to frontend format
       const formattedAssignments = backendAssignments.map(assignment => ({
         id: `a-${assignment.patientId}-${assignment.date}`,
         staffId: assignment.staffId.toString(),
-        patientId: assignment.patientId,
+        patientId: assignment.patientId.toString(),
         date: assignment.date,
       }));
       
       setAssignments(formattedAssignments);
+      console.log('Loaded assignments:', formattedAssignments.length);
     } catch (error) {
       console.error('Failed to load assignments:', error);
       if (error instanceof ApiError) {
@@ -204,6 +200,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       };
       
       setPatients(prev => [...prev, formattedPatient]);
+      
+      // Refresh assignments to include the new patient
+      await loadAssignments();
     } catch (error) {
       console.error('Failed to add patient:', error);
       if (error instanceof ApiError) {

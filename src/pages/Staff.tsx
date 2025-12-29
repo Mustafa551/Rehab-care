@@ -16,6 +16,7 @@ export default function Staff() {
   const { 
     staffMembers,
     patients,
+    assignments,
     currentDate, 
     getStaffPatients,
     getPatientDoctor,
@@ -52,6 +53,15 @@ export default function Staff() {
     }
   };
 
+  const handleRegenerateAssignments = async () => {
+    setIsRefreshing(true);
+    try {
+      await refreshAssignments();
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -77,10 +87,46 @@ export default function Staff() {
           >
             <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
           </Button>
+          <Button
+            variant="default"
+            onClick={handleRegenerateAssignments}
+            disabled={isRefreshing || isLoadingAssignments}
+            className="gap-2"
+          >
+            <UserCheck className="h-4 w-4" />
+            Assign Today
+          </Button>
           <AddStaffDialog />
           <AddPatientDialog />
         </div>
       </div>
+
+      {/* Current Date and Rotation Info */}
+      <Card variant="flat" className="bg-gradient-to-r from-primary/5 to-secondary/5 border-primary/20">
+        <CardContent className="py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Calendar className="h-5 w-5 text-primary" />
+              <div>
+                <h3 className="font-semibold text-foreground">
+                  Current Assignment Date: {format(new Date(currentDate), 'EEEE, MMMM d, yyyy')}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  Non-doctor staff assignments rotate daily • Doctor assignments are permanent
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-sm font-medium text-foreground">
+                Assignments: {assignments.length} total
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {patients.length} patients • {staffMembers.filter(s => s.isOnDuty).length} active staff
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Error Alerts */}
       {staffError && (
