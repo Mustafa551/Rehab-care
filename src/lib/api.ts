@@ -39,6 +39,19 @@ export interface StaffAssignment {
   updatedAt: string;
 }
 
+export interface Patient {
+  id: number;
+  name: string;
+  email: string;
+  phone: string;
+  dateOfBirth: string;
+  medicalCondition: string;
+  assignedDoctorId?: number;
+  status: 'active' | 'inactive' | 'discharged';
+  createdAt: string;
+  updatedAt: string;
+}
+
 class ApiError extends Error {
   constructor(
     message: string,
@@ -239,6 +252,61 @@ export const api = {
     return apiRequest('/assignments/doctors/assign', {
       method: 'POST',
       body: JSON.stringify({ doctorId, patientId }),
+    });
+  },
+
+  // Patient endpoints
+  getAllPatients: async (filters?: { status?: string; doctorId?: number }): Promise<Patient[]> => {
+    const params = new URLSearchParams();
+    if (filters?.status) params.append('status', filters.status);
+    if (filters?.doctorId) params.append('doctorId', filters.doctorId.toString());
+    
+    const queryString = params.toString();
+    const endpoint = queryString ? `/patients?${queryString}` : '/patients';
+    
+    return apiRequest<Patient[]>(endpoint);
+  },
+
+  getPatientById: async (patientId: number): Promise<Patient> => {
+    return apiRequest<Patient>(`/patients/${patientId}`);
+  },
+
+  createPatient: async (patientData: {
+    name: string;
+    email: string;
+    phone: string;
+    dateOfBirth: string;
+    medicalCondition: string;
+    assignedDoctorId?: number;
+    status?: 'active' | 'inactive' | 'discharged';
+  }): Promise<Patient> => {
+    return apiRequest<Patient>('/patients', {
+      method: 'POST',
+      body: JSON.stringify(patientData),
+    });
+  },
+
+  updatePatient: async (
+    patientId: number,
+    patientData: Partial<{
+      name: string;
+      email: string;
+      phone: string;
+      dateOfBirth: string;
+      medicalCondition: string;
+      assignedDoctorId: number;
+      status: 'active' | 'inactive' | 'discharged';
+    }>
+  ): Promise<Patient> => {
+    return apiRequest<Patient>(`/patients/${patientId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(patientData),
+    });
+  },
+
+  deletePatient: async (patientId: number) => {
+    return apiRequest(`/patients/${patientId}`, {
+      method: 'DELETE',
     });
   },
 };

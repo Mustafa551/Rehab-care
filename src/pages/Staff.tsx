@@ -3,6 +3,7 @@ import { useData } from '@/contexts/DataContext';
 import { StaffCard } from '@/components/staff/StaffCard';
 import { PatientCard } from '@/components/patients/PatientCard';
 import { AddStaffDialog } from '@/components/staff/AddStaffDialog';
+import { AddPatientDialog } from '@/components/patients/AddPatientDialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -18,11 +19,14 @@ export default function Staff() {
     currentDate, 
     getStaffPatients,
     getPatientAssignment,
-    isLoadingStaff, 
+    isLoadingStaff,
+    isLoadingPatients, 
     isLoadingAssignments,
     staffError,
+    patientError,
     assignmentError, 
     refreshStaff,
+    refreshPatients,
     refreshAssignments
   } = useData();
   const [searchTerm, setSearchTerm] = useState('');
@@ -42,7 +46,7 @@ export default function Staff() {
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      await Promise.all([refreshStaff(), refreshAssignments()]);
+      await Promise.all([refreshStaff(), refreshPatients(), refreshAssignments()]);
     } finally {
       setIsRefreshing(false);
     }
@@ -69,11 +73,12 @@ export default function Staff() {
             variant="outline"
             size="icon"
             onClick={handleRefresh}
-            disabled={isRefreshing || isLoadingStaff}
+            disabled={isRefreshing || isLoadingStaff || isLoadingPatients}
           >
             <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
           </Button>
           <AddStaffDialog />
+          <AddPatientDialog />
         </div>
       </div>
 
@@ -83,6 +88,24 @@ export default function Staff() {
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
             Staff Error: {staffError}
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="ml-2" 
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+            >
+              Try Again
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {patientError && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Patient Error: {patientError}
             <Button 
               variant="outline" 
               size="sm" 
@@ -255,19 +278,18 @@ export default function Staff() {
 
         {/* Patients Tab */}
         <TabsContent value="patients" className="mt-6">
-          {/* Patients Grid */}
-          {filteredPatients.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredPatients.map((patient, index) => (
-                <div key={patient.id} style={{ animationDelay: `${index * 50}ms` }}>
-                  <PatientCard
-                    patient={patient}
-                    assignedStaff={getPatientAssignment(patient.id)}
-                  />
-                </div>
-              ))}
+          {/* Loading State */}
+          {isLoadingPatients && (
+            <div className="flex items-center justify-center py-12">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                <span>Loading patients...</span>
+              </div>
             </div>
-          ) : (
+          )}
+
+          {/* Empty State */}
+          {!isLoadingPatients && !patientError && patients.length === 0 && (
             <Card>
               <CardContent className="py-12 text-center">
                 <div className="space-y-4">
@@ -276,15 +298,49 @@ export default function Staff() {
                   </div>
                   <div>
                     <h3 className="font-semibold text-foreground">No Patients Found</h3>
+                    <p className="text-muted-foreground">Get started by adding your first patient.</p>
+                  </div>
+                  <AddPatientDialog trigger={
+                    <Button>
+                      Add First Patient
+                    </Button>
+                  } />
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Patients Grid */}
+          {!isLoadingPatients && filteredPatients.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredPatients.map((patient, index) => (
+                <div key={patient.id} style={{ animationDelay: `${index * 50}ms` }}>
+                  <PatientCard
+                    patient={patient}
+                    assignedStaff={getPatientAssignment(patient.id.toString())}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* No Search Results */}
+          {!isLoadingPatients && patients.length > 0 && filteredPatients.length === 0 && (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <div className="space-y-4">
+                  <div className="mx-auto w-16 h-16 bg-muted rounded-full flex items-center justify-center">
+                    <Search className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-foreground">No Results Found</h3>
                     <p className="text-muted-foreground">
-                      {searchTerm ? `No patients match your search for "${searchTerm}".` : 'No patients are currently registered.'}
+                      No patients match your search for "{searchTerm}".
                     </p>
                   </div>
-                  {searchTerm && (
-                    <Button variant="outline" onClick={() => setSearchTerm('')}>
-                      Clear Search
-                    </Button>
-                  )}
+                  <Button variant="outline" onClick={() => setSearchTerm('')}>
+                    Clear Search
+                  </Button>
                 </div>
               </CardContent>
             </Card>

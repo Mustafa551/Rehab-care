@@ -1,15 +1,23 @@
 export type AgeGroup = 'youth' | 'adult';
 
 export interface Patient {
-  id: string;
+  id: string | number;
   name: string;
-  age: number;
-  ageGroup: AgeGroup;
-  roomNumber: number;
-  admissionDate: string;
-  condition: string;
-  assignedStaffId: string | null;
-  assignedDoctorId: string | null;
+  email?: string;
+  phone?: string;
+  dateOfBirth?: string;
+  medicalCondition?: string;
+  assignedDoctorId?: string | number | null;
+  status?: 'active' | 'inactive' | 'discharged';
+  createdAt?: string;
+  updatedAt?: string;
+  // Legacy fields for compatibility
+  age?: number;
+  ageGroup?: AgeGroup;
+  roomNumber?: number;
+  admissionDate?: string;
+  condition?: string;
+  assignedStaffId?: string | null;
   photoUrl?: string;
 }
 

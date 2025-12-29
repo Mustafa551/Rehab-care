@@ -8,8 +8,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Plus, User, MapPin, Calendar, Stethoscope, Baby, Users, UserCheck } from 'lucide-react';
+import { Plus, User, MapPin, Calendar, Stethoscope, Baby, Users, UserCheck, Mail, Phone, Loader2 } from 'lucide-react';
 import { AgeGroup } from '@/types';
+import { toast } from 'sonner';
 
 interface AddPatientDialogProps {
   trigger?: React.ReactNode;
@@ -18,16 +19,37 @@ interface AddPatientDialogProps {
 export function AddPatientDialog({ trigger }: AddPatientDialogProps) {
   const { patients, addPatient, getDoctors } = useData();
   const [open, setOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
+    email: '',
+    phone: '',
+    dateOfBirth: '',
+    medicalCondition: '',
+    assignedDoctorId: 'none',
+    status: 'active' as 'active' | 'inactive' | 'discharged',
+    // Legacy fields for compatibility
     age: '',
     condition: '',
     roomNumber: '',
     admissionDate: new Date().toISOString().split('T')[0],
-    assignedDoctorId: 'none',
   });
 
-  const ageGroup: AgeGroup = parseInt(formData.age) < 18 ? 'youth' : 'adult';
+  // Calculate age from date of birth
+  const calculateAge = (dateOfBirth: string) => {
+    if (!dateOfBirth) return 0;
+    const today = new Date();
+    const birthDate = new Date(dateOfBirth);
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
+  const age = formData.dateOfBirth ? calculateAge(formData.dateOfBirth) : (formData.age ? parseInt(formData.age) : 0);
+  const ageGroup: AgeGroup = age < 18 ? 'youth' : 'adult';
   const doctors = getDoctors();
   
   // Get available room numbers
@@ -37,38 +59,74 @@ export function AddPatientDialog({ trigger }: AddPatientDialogProps) {
   const availableYouthRooms = youthRooms.filter(room => !occupiedRooms.includes(room));
   const availableAdultRooms = adultRooms.filter(room => !occupiedRooms.includes(room));
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Validate form
-    if (!formData.name || !formData.age || !formData.condition || !formData.roomNumber) {
+    if (!formData.name || !formData.email || !formData.phone || !formData.dateOfBirth || !formData.medicalCondition) {
+      toast.error('Please fill in all required fields');
       return;
     }
 
-    const newPatient = {
-      name: formData.name,
-      age: parseInt(formData.age),
-      ageGroup,
-      roomNumber: parseInt(formData.roomNumber),
-      admissionDate: formData.admissionDate,
-      condition: formData.condition,
-      assignedStaffId: null,
-      assignedDoctorId: formData.assignedDoctorId === 'none' ? null : formData.assignedDoctorId || null,
-    };
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
 
-    // Add patient using context function
-    addPatient(newPatient);
-    
-    // Reset form and close dialog
-    setFormData({
-      name: '',
-      age: '',
-      condition: '',
-      roomNumber: '',
-      admissionDate: new Date().toISOString().split('T')[0],
-      assignedDoctorId: 'none',
-    });
-    setOpen(false);
+    // Validate phone format (XXX-XXXX)
+    const phoneRegex = /^\d{3}-\d{4}$/;
+    if (!phoneRegex.test(formData.phone)) {
+      toast.error('Phone number must be in format XXX-XXXX');
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const newPatient = {
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        dateOfBirth: formData.dateOfBirth,
+        medicalCondition: formData.medicalCondition,
+        assignedDoctorId: formData.assignedDoctorId === 'none' ? undefined : Number(formData.assignedDoctorId),
+        status: formData.status,
+        // Legacy fields for compatibility
+        age,
+        ageGroup,
+        condition: formData.medicalCondition,
+        roomNumber: parseInt(formData.roomNumber) || Math.floor(Math.random() * 100) + 100,
+        admissionDate: formData.admissionDate,
+        assignedStaffId: null,
+      };
+
+      await addPatient(newPatient);
+      
+      toast.success('Patient added successfully!');
+      
+      // Reset form and close dialog
+      setFormData({
+        name: '',
+        email: '',
+        phone: '',
+        dateOfBirth: '',
+        medicalCondition: '',
+        assignedDoctorId: 'none',
+        status: 'active',
+        age: '',
+        condition: '',
+        roomNumber: '',
+        admissionDate: new Date().toISOString().split('T')[0],
+      });
+      setOpen(false);
+    } catch (error) {
+      console.error('Failed to add patient:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to add patient');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleInputChange = (field: string, value: string) => {
@@ -109,70 +167,44 @@ export function AddPatientDialog({ trigger }: AddPatientDialogProps) {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="age">Age *</Label>
+                <Label htmlFor="email">Email Address *</Label>
                 <Input
-                  id="age"
-                  type="number"
-                  min="1"
-                  max="120"
-                  value={formData.age}
-                  onChange={(e) => handleInputChange('age', e.target.value)}
-                  placeholder="Enter age"
+                  id="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => handleInputChange('email', e.target.value)}
+                  placeholder="patient@example.com"
                   required
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="roomNumber">Room Number *</Label>
-                <Select
-                  value={formData.roomNumber}
-                  onValueChange={(value) => handleInputChange('roomNumber', value)}
+                <Label htmlFor="phone">Phone Number *</Label>
+                <Input
+                  id="phone"
+                  value={formData.phone}
+                  onChange={(e) => handleInputChange('phone', e.target.value)}
+                  placeholder="123-4567"
+                  pattern="\d{3}-\d{4}"
+                  title="Phone number must be in format XXX-XXXX"
                   required
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select room number" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {formData.age && parseInt(formData.age) < 18 ? (
-                      <>
-                        <div className="px-2 py-1 text-xs font-medium text-muted-foreground">
-                          Youth Section (201-210)
-                        </div>
-                        {availableYouthRooms.map(room => (
-                          <SelectItem key={room} value={room.toString()}>
-                            Room {room}
-                          </SelectItem>
-                        ))}
-                      </>
-                    ) : formData.age && parseInt(formData.age) >= 18 ? (
-                      <>
-                        <div className="px-2 py-1 text-xs font-medium text-muted-foreground">
-                          Adult Section (101-110)
-                        </div>
-                        {availableAdultRooms.map(room => (
-                          <SelectItem key={room} value={room.toString()}>
-                            Room {room}
-                          </SelectItem>
-                        ))}
-                      </>
-                    ) : (
-                      <div className="px-2 py-1 text-xs text-muted-foreground">
-                        Please enter age first
-                      </div>
-                    )}
-                  </SelectContent>
-                </Select>
+                />
+                <p className="text-xs text-muted-foreground">Format: XXX-XXXX</p>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="admissionDate">Admission Date *</Label>
+                <Label htmlFor="dateOfBirth">Date of Birth *</Label>
                 <Input
-                  id="admissionDate"
+                  id="dateOfBirth"
                   type="date"
-                  value={formData.admissionDate}
-                  onChange={(e) => handleInputChange('admissionDate', e.target.value)}
+                  value={formData.dateOfBirth}
+                  onChange={(e) => handleInputChange('dateOfBirth', e.target.value)}
+                  max={new Date().toISOString().split('T')[0]}
                   required
                 />
+                {formData.dateOfBirth && (
+                  <p className="text-xs text-muted-foreground">Age: {age} years old</p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -187,7 +219,7 @@ export function AddPatientDialog({ trigger }: AddPatientDialogProps) {
                   <SelectContent>
                     <SelectItem value="none">No doctor assigned</SelectItem>
                     {doctors.map(doctor => (
-                      <SelectItem key={doctor.id} value={doctor.id}>
+                      <SelectItem key={doctor.id} value={doctor.id.toString()}>
                         <div className="flex items-center gap-2">
                           <Stethoscope className="h-4 w-4" />
                           {doctor.name}
@@ -196,14 +228,34 @@ export function AddPatientDialog({ trigger }: AddPatientDialogProps) {
                     ))}
                   </SelectContent>
                 </Select>
+                {doctors.length === 0 && (
+                  <p className="text-xs text-muted-foreground">No doctors available. Add doctors first.</p>
+                )}
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="condition">Medical Condition *</Label>
+                <Label htmlFor="status">Status</Label>
+                <Select
+                  value={formData.status}
+                  onValueChange={(value: 'active' | 'inactive' | 'discharged') => handleInputChange('status', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="inactive">Inactive</SelectItem>
+                    <SelectItem value="discharged">Discharged</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="medicalCondition">Medical Condition *</Label>
                 <Textarea
-                  id="condition"
-                  value={formData.condition}
-                  onChange={(e) => handleInputChange('condition', e.target.value)}
+                  id="medicalCondition"
+                  value={formData.medicalCondition}
+                  onChange={(e) => handleInputChange('medicalCondition', e.target.value)}
                   placeholder="Describe the patient's condition and rehabilitation needs"
                   rows={3}
                   required
@@ -211,10 +263,17 @@ export function AddPatientDialog({ trigger }: AddPatientDialogProps) {
               </div>
 
               <div className="flex gap-3 pt-4">
-                <Button type="submit" className="flex-1">
-                  Add Patient
+                <Button type="submit" className="flex-1" disabled={isSubmitting}>
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Adding Patient...
+                    </>
+                  ) : (
+                    'Add Patient'
+                  )}
                 </Button>
-                <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={isSubmitting}>
                   Cancel
                 </Button>
               </div>
@@ -237,7 +296,7 @@ export function AddPatientDialog({ trigger }: AddPatientDialogProps) {
                         {formData.name || 'Patient Name'}
                       </h3>
                       <p className="text-sm text-muted-foreground">
-                        Age: {formData.age || '--'}
+                        Age: {age || '--'}
                       </p>
                     </div>
                   </div>
@@ -258,19 +317,27 @@ export function AddPatientDialog({ trigger }: AddPatientDialogProps) {
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex items-center gap-2 text-sm">
-                  <MapPin className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">Room</span>
+                  <Mail className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-muted-foreground">Email</span>
                   <span className="font-medium text-foreground">
-                    {formData.roomNumber || '--'}
+                    {formData.email || '--'}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2 text-sm">
+                  <Phone className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-muted-foreground">Phone</span>
+                  <span className="font-medium text-foreground">
+                    {formData.phone || '--'}
                   </span>
                 </div>
                 
                 <div className="flex items-center gap-2 text-sm">
                   <Calendar className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">Admitted</span>
+                  <span className="text-muted-foreground">Date of Birth</span>
                   <span className="font-medium text-foreground">
-                    {formData.admissionDate ? 
-                      new Date(formData.admissionDate).toLocaleDateString('en-US', {
+                    {formData.dateOfBirth ? 
+                      new Date(formData.dateOfBirth).toLocaleDateString('en-US', {
                         year: 'numeric',
                         month: 'short',
                         day: 'numeric'
@@ -282,7 +349,7 @@ export function AddPatientDialog({ trigger }: AddPatientDialogProps) {
                 <div className="flex items-start gap-2 text-sm">
                   <Stethoscope className="h-4 w-4 text-muted-foreground mt-0.5" />
                   <span className="text-muted-foreground line-clamp-3">
-                    {formData.condition || 'Medical condition will appear here...'}
+                    {formData.medicalCondition || 'Medical condition will appear here...'}
                   </span>
                 </div>
 
@@ -291,28 +358,33 @@ export function AddPatientDialog({ trigger }: AddPatientDialogProps) {
                     <UserCheck className="h-4 w-4 text-muted-foreground" />
                     <span className="text-muted-foreground">Doctor</span>
                     <span className="font-medium text-foreground">
-                      {doctors.find(d => d.id === formData.assignedDoctorId)?.name || '--'}
+                      {doctors.find(d => d.id.toString() === formData.assignedDoctorId)?.name || '--'}
                     </span>
                   </div>
                 )}
+
+                <div className="flex items-center gap-2 text-sm">
+                  <Badge variant={formData.status === 'active' ? 'default' : formData.status === 'inactive' ? 'secondary' : 'destructive'}>
+                    {formData.status}
+                  </Badge>
+                </div>
               </CardContent>
             </Card>
 
-            {/* Room availability info */}
+            {/* Doctor availability info */}
             <Card variant="flat" className="bg-muted/50">
               <CardContent className="pt-4">
                 <div className="space-y-2">
-                  <h4 className="text-sm font-medium">Room Availability</h4>
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div>
-                      <span className="text-muted-foreground">Youth (201-210):</span>
-                      <span className="ml-1 font-medium">{availableYouthRooms.length} available</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Adult (101-110):</span>
-                      <span className="ml-1 font-medium">{availableAdultRooms.length} available</span>
-                    </div>
+                  <h4 className="text-sm font-medium">Available Doctors</h4>
+                  <div className="text-xs">
+                    <span className="text-muted-foreground">Total doctors:</span>
+                    <span className="ml-1 font-medium">{doctors.length}</span>
                   </div>
+                  {doctors.length === 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      No doctors available. Add doctors from the Staff page first.
+                    </p>
+                  )}
                 </div>
               </CardContent>
             </Card>

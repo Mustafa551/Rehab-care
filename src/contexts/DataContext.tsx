@@ -1,7 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Patient, StaffMember, MealSchedule, DoctorNote, RehabProgress, StaffAssignment } from '@/types';
 import { 
-  patients as initialPatients, 
   mealSchedules as initialMeals,
   doctorNotes as initialNotes,
   rehabProgress as initialProgress
@@ -18,12 +17,14 @@ interface DataContextType {
   assignments: StaffAssignment[];
   currentDate: string;
   isLoadingStaff: boolean;
+  isLoadingPatients: boolean;
   isLoadingAssignments: boolean;
   staffError: string | null;
+  patientError: string | null;
   assignmentError: string | null;
   
   // Actions
-  addPatient: (patient: Omit<Patient, 'id'>) => void;
+  addPatient: (patient: Omit<Patient, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
   addStaffMember: (staff: Omit<StaffMember, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
   updateMealSchedule: (schedule: MealSchedule) => void;
   addDoctorNote: (note: Omit<DoctorNote, 'id'>) => void;
@@ -32,15 +33,16 @@ interface DataContextType {
   getPatientAssignment: (patientId: string) => StaffMember | null;
   getStaffPatients: (staffId: string | number) => Patient[];
   getDoctors: () => StaffMember[];
-  getPatientDoctor: (patientId: string) => StaffMember | null;
+  getPatientDoctor: (patientId: string | number) => StaffMember | null;
   refreshStaff: () => Promise<void>;
+  refreshPatients: () => Promise<void>;
   refreshAssignments: () => Promise<void>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export function DataProvider({ children }: { children: ReactNode }) {
-  const [patients, setPatients] = useState<Patient[]>(initialPatients);
+  const [patients, setPatients] = useState<Patient[]>([]);
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
   const [mealSchedules, setMealSchedules] = useState<MealSchedule[]>(initialMeals);
   const [doctorNotes, setDoctorNotes] = useState<DoctorNote[]>(initialNotes);
@@ -48,13 +50,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [assignments, setAssignments] = useState<StaffAssignment[]>([]);
   const [currentDate, setCurrentDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [isLoadingStaff, setIsLoadingStaff] = useState(true);
+  const [isLoadingPatients, setIsLoadingPatients] = useState(true);
   const [isLoadingAssignments, setIsLoadingAssignments] = useState(false);
   const [staffError, setStaffError] = useState<string | null>(null);
+  const [patientError, setPatientError] = useState<string | null>(null);
   const [assignmentError, setAssignmentError] = useState<string | null>(null);
 
-  // Load staff from backend on mount
+  // Load staff and patients from backend on mount
   useEffect(() => {
     loadStaff();
+    loadPatients();
   }, []);
 
   // Load assignments when staff loads or date changes
@@ -133,16 +138,80 @@ export function DataProvider({ children }: { children: ReactNode }) {
     await loadStaff();
   };
 
+  const loadPatients = async () => {
+    try {
+      setIsLoadingPatients(true);
+      setPatientError(null);
+      const backendPatients = await api.getAllPatients();
+      
+      // Convert backend patients to frontend format for compatibility
+      const formattedPatients = backendPatients.map(patient => ({
+        ...patient,
+        id: patient.id.toString(),
+        condition: patient.medicalCondition,
+        admissionDate: patient.createdAt,
+        age: patient.dateOfBirth ? new Date().getFullYear() - new Date(patient.dateOfBirth).getFullYear() : 0,
+        ageGroup: (patient.dateOfBirth ? new Date().getFullYear() - new Date(patient.dateOfBirth).getFullYear() : 0) < 18 ? 'youth' as const : 'adult' as const,
+        roomNumber: Math.floor(Math.random() * 100) + 100, // Temporary random room number
+        assignedStaffId: null, // Will be populated from assignments
+      }));
+      
+      setPatients(formattedPatients);
+    } catch (error) {
+      console.error('Failed to load patients:', error);
+      if (error instanceof ApiError) {
+        setPatientError(error.message);
+      } else {
+        setPatientError('Failed to load patients');
+      }
+      setPatients([]);
+    } finally {
+      setIsLoadingPatients(false);
+    }
+  };
+
+  const refreshPatients = async () => {
+    await loadPatients();
+  };
+
   const refreshAssignments = async () => {
     await loadAssignments();
   };
 
-  const addPatient = (patientData: Omit<Patient, 'id'>) => {
-    const newPatient: Patient = {
-      ...patientData,
-      id: `p${Date.now()}`,
-    };
-    setPatients(prev => [...prev, newPatient]);
+  const addPatient = async (patientData: Omit<Patient, 'id' | 'createdAt' | 'updatedAt'>) => {
+    try {
+      setPatientError(null);
+      const newPatient = await api.createPatient({
+        name: patientData.name,
+        email: patientData.email || '',
+        phone: patientData.phone || '',
+        dateOfBirth: patientData.dateOfBirth || new Date().toISOString().split('T')[0],
+        medicalCondition: patientData.medicalCondition || patientData.condition || '',
+        assignedDoctorId: patientData.assignedDoctorId ? Number(patientData.assignedDoctorId) : undefined,
+        status: patientData.status || 'active',
+      });
+      
+      // Convert to frontend format
+      const formattedPatient = {
+        ...newPatient,
+        id: newPatient.id.toString(),
+        condition: newPatient.medicalCondition,
+        admissionDate: newPatient.createdAt,
+        age: newPatient.dateOfBirth ? new Date().getFullYear() - new Date(newPatient.dateOfBirth).getFullYear() : 0,
+        ageGroup: (newPatient.dateOfBirth ? new Date().getFullYear() - new Date(newPatient.dateOfBirth).getFullYear() : 0) < 18 ? 'youth' as const : 'adult' as const,
+        roomNumber: Math.floor(Math.random() * 100) + 100,
+        assignedStaffId: null,
+      };
+      
+      setPatients(prev => [...prev, formattedPatient]);
+    } catch (error) {
+      console.error('Failed to add patient:', error);
+      if (error instanceof ApiError) {
+        throw new Error(error.message);
+      } else {
+        throw new Error('Failed to add patient');
+      }
+    }
   };
 
   const addStaffMember = async (staffData: Omit<StaffMember, 'id' | 'createdAt' | 'updatedAt'>) => {
@@ -232,10 +301,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return staffMembers.filter(s => s.role === 'doctor');
   };
 
-  const getPatientDoctor = (patientId: string): StaffMember | null => {
-    const patient = patients.find(p => p.id === patientId);
+  const getPatientDoctor = (patientId: string | number): StaffMember | null => {
+    const patient = patients.find(p => p.id.toString() === patientId.toString());
     if (!patient || !patient.assignedDoctorId) return null;
-    return staffMembers.find(s => s.id.toString() === patient.assignedDoctorId) || null;
+    return staffMembers.find(s => s.id.toString() === patient.assignedDoctorId?.toString()) || null;
   };
 
   return (
@@ -248,8 +317,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       assignments,
       currentDate,
       isLoadingStaff,
+      isLoadingPatients,
       isLoadingAssignments,
       staffError,
+      patientError,
       assignmentError,
       addPatient,
       addStaffMember,
@@ -262,6 +333,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       getDoctors,
       getPatientDoctor,
       refreshStaff,
+      refreshPatients,
       refreshAssignments,
     }}>
       {children}
