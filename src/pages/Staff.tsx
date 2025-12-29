@@ -1,19 +1,23 @@
 import { useState } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { StaffCard } from '@/components/staff/StaffCard';
+import { PatientCard } from '@/components/patients/PatientCard';
 import { AddStaffDialog } from '@/components/staff/AddStaffDialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, RefreshCw, Calendar, Info, Loader2, AlertCircle } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Search, RefreshCw, Calendar, Info, Loader2, AlertCircle, Users, UserCheck } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { format } from 'date-fns';
 
 export default function Staff() {
   const { 
-    staffMembers, 
+    staffMembers,
+    patients,
     currentDate, 
-    getStaffPatients, 
+    getStaffPatients,
+    getPatientAssignment,
     isLoadingStaff, 
     isLoadingAssignments,
     staffError,
@@ -29,6 +33,12 @@ export default function Staff() {
     staff.role.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const filteredPatients = patients.filter(patient =>
+    patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    patient.condition.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    patient.roomNumber.toString().includes(searchTerm)
+  );
+
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
@@ -42,14 +52,14 @@ export default function Staff() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Staff Management</h1>
-          <p className="text-muted-foreground">View staff assignments and rotation schedule</p>
+          <h1 className="text-2xl font-bold text-foreground">Staff & Patient Management</h1>
+          <p className="text-muted-foreground">View staff assignments, patient assignments, and rotation schedule</p>
         </div>
         <div className="flex items-center gap-3">
           <div className="relative w-full sm:w-72">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search staff..."
+              placeholder="Search staff or patients..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
@@ -153,79 +163,134 @@ export default function Staff() {
         </CardContent>
       </Card>
 
-      {/* Loading State */}
-      {(isLoadingStaff || isLoadingAssignments) && (
-        <div className="flex items-center justify-center py-12">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Loader2 className="h-5 w-5 animate-spin" />
-            <span>
-              {isLoadingStaff && isLoadingAssignments 
-                ? 'Loading staff and assignments...'
-                : isLoadingStaff 
-                ? 'Loading staff members...'
-                : 'Loading assignments...'}
-            </span>
-          </div>
-        </div>
-      )}
+      {/* Tabs for Staff and Patients */}
+      <Tabs defaultValue="staff" className="w-full">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="staff" className="gap-2">
+            <UserCheck className="h-4 w-4" />
+            Staff ({filteredStaff.length})
+          </TabsTrigger>
+          <TabsTrigger value="patients" className="gap-2">
+            <Users className="h-4 w-4" />
+            Patients ({filteredPatients.length})
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Empty State */}
-      {!isLoadingStaff && !isLoadingAssignments && !staffError && staffMembers.length === 0 && (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <div className="space-y-4">
-              <div className="mx-auto w-16 h-16 bg-muted rounded-full flex items-center justify-center">
-                <Search className="h-8 w-8 text-muted-foreground" />
+        {/* Staff Tab */}
+        <TabsContent value="staff" className="mt-6">
+          {/* Loading State */}
+          {(isLoadingStaff || isLoadingAssignments) && (
+            <div className="flex items-center justify-center py-12">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                <span>
+                  {isLoadingStaff && isLoadingAssignments 
+                    ? 'Loading staff and assignments...'
+                    : isLoadingStaff 
+                    ? 'Loading staff members...'
+                    : 'Loading assignments...'}
+                </span>
               </div>
-              <div>
-                <h3 className="font-semibold text-foreground">No Staff Members Found</h3>
-                <p className="text-muted-foreground">Get started by adding your first staff member.</p>
-              </div>
-              <AddStaffDialog trigger={
-                <Button>
-                  Add First Staff Member
-                </Button>
-              } />
             </div>
-          </CardContent>
-        </Card>
-      )}
+          )}
 
-      {/* Staff Grid */}
-      {!isLoadingStaff && !isLoadingAssignments && filteredStaff.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredStaff.map((staff, index) => (
-            <div key={staff.id} style={{ animationDelay: `${index * 50}ms` }}>
-              <StaffCard
-                staff={staff}
-                assignedPatients={getStaffPatients(staff.id)}
-              />
-            </div>
-          ))}
-        </div>
-      )}
+          {/* Empty State */}
+          {!isLoadingStaff && !isLoadingAssignments && !staffError && staffMembers.length === 0 && (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <div className="space-y-4">
+                  <div className="mx-auto w-16 h-16 bg-muted rounded-full flex items-center justify-center">
+                    <Search className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-foreground">No Staff Members Found</h3>
+                    <p className="text-muted-foreground">Get started by adding your first staff member.</p>
+                  </div>
+                  <AddStaffDialog trigger={
+                    <Button>
+                      Add First Staff Member
+                    </Button>
+                  } />
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
-      {/* No Search Results */}
-      {!isLoadingStaff && !isLoadingAssignments && staffMembers.length > 0 && filteredStaff.length === 0 && (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <div className="space-y-4">
-              <div className="mx-auto w-16 h-16 bg-muted rounded-full flex items-center justify-center">
-                <Search className="h-8 w-8 text-muted-foreground" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-foreground">No Results Found</h3>
-                <p className="text-muted-foreground">
-                  No staff members match your search for "{searchTerm}".
-                </p>
-              </div>
-              <Button variant="outline" onClick={() => setSearchTerm('')}>
-                Clear Search
-              </Button>
+          {/* Staff Grid */}
+          {!isLoadingStaff && !isLoadingAssignments && filteredStaff.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredStaff.map((staff, index) => (
+                <div key={staff.id} style={{ animationDelay: `${index * 50}ms` }}>
+                  <StaffCard
+                    staff={staff}
+                    assignedPatients={getStaffPatients(staff.id)}
+                  />
+                </div>
+              ))}
             </div>
-          </CardContent>
-        </Card>
-      )}
+          )}
+
+          {/* No Search Results */}
+          {!isLoadingStaff && !isLoadingAssignments && staffMembers.length > 0 && filteredStaff.length === 0 && (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <div className="space-y-4">
+                  <div className="mx-auto w-16 h-16 bg-muted rounded-full flex items-center justify-center">
+                    <Search className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-foreground">No Results Found</h3>
+                    <p className="text-muted-foreground">
+                      No staff members match your search for "{searchTerm}".
+                    </p>
+                  </div>
+                  <Button variant="outline" onClick={() => setSearchTerm('')}>
+                    Clear Search
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        {/* Patients Tab */}
+        <TabsContent value="patients" className="mt-6">
+          {/* Patients Grid */}
+          {filteredPatients.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredPatients.map((patient, index) => (
+                <div key={patient.id} style={{ animationDelay: `${index * 50}ms` }}>
+                  <PatientCard
+                    patient={patient}
+                    assignedStaff={getPatientAssignment(patient.id)}
+                  />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <div className="space-y-4">
+                  <div className="mx-auto w-16 h-16 bg-muted rounded-full flex items-center justify-center">
+                    <Users className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-foreground">No Patients Found</h3>
+                    <p className="text-muted-foreground">
+                      {searchTerm ? `No patients match your search for "${searchTerm}".` : 'No patients are currently registered.'}
+                    </p>
+                  </div>
+                  {searchTerm && (
+                    <Button variant="outline" onClick={() => setSearchTerm('')}>
+                      Clear Search
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

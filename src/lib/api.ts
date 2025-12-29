@@ -210,6 +210,12 @@ export const api = {
     });
   },
 
+  initializeAssignments: async () => {
+    return apiRequest('/assignments/initialize', {
+      method: 'POST',
+    });
+  },
+
   getAssignmentsByStaff: async (staffId: number, date?: string): Promise<StaffAssignment[]> => {
     const endpoint = date 
       ? `/assignments/staff/${staffId}?date=${date}`

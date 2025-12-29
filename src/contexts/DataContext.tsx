@@ -70,6 +70,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setStaffError(null);
       const staff = await api.getAllStaff();
       setStaffMembers(staff);
+      
+      // Initialize doctor assignments if this is the first time
+      try {
+        await api.initializeAssignments();
+      } catch (error) {
+        // Don't fail if initialization fails, just log it
+        console.warn('Failed to initialize assignments:', error);
+      }
     } catch (error) {
       console.error('Failed to load staff:', error);
       if (error instanceof ApiError) {
@@ -88,7 +96,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
     try {
       setIsLoadingAssignments(true);
       setAssignmentError(null);
-      const backendAssignments = await api.getAssignmentsByDate(currentDate);
+      
+      // First try to get existing assignments for current date
+      let backendAssignments = await api.getAssignmentsByDate(currentDate);
+      
+      // If no assignments exist for current date, generate them
+      if (backendAssignments.length === 0) {
+        console.log('No assignments found for current date, generating new assignments...');
+        backendAssignments = await api.generateAssignments(currentDate);
+      }
       
       // Convert backend assignments to frontend format
       const formattedAssignments = backendAssignments.map(assignment => ({
