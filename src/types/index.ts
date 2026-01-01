@@ -1,4 +1,6 @@
 export type AgeGroup = 'youth' | 'adult';
+export type Gender = 'male' | 'female' | 'other';
+export type RoomType = 'general' | 'semi-private' | 'private';
 
 export interface Patient {
   id: string | number;
@@ -11,8 +13,16 @@ export interface Patient {
   status?: 'active' | 'inactive' | 'discharged';
   createdAt?: string;
   updatedAt?: string;
-  // Legacy fields for compatibility
+  // New registration fields
   age?: number;
+  gender?: Gender;
+  address?: string;
+  emergencyContact?: string;
+  diseases?: string[];
+  assignedNurses?: string[];
+  initialDeposit?: number;
+  roomType?: RoomType;
+  // Legacy fields for compatibility
   ageGroup?: AgeGroup;
   roomNumber?: number;
   admissionDate?: string;
@@ -83,4 +93,46 @@ export interface User {
   // Computed properties for compatibility
   name?: string;
   role?: 'admin' | 'staff';
+}
+export interface Doctor {
+  id: string | number;
+  name: string;
+  specialization: string;
+  diseases: string[];
+}
+
+export interface Nurse {
+  id: string | number;
+  name: string;
+  type: 'fresh' | 'bscn';
+  description: string;
+}
+
+export interface Disease {
+  id: string;
+  name: string;
+  category?: string;
+}
+
+export interface PatientRegistration {
+  // Personal Information
+  fullName: string;
+  age: number;
+  gender: Gender;
+  phone: string;
+  address: string;
+  emergencyContact: string;
+  
+  // Medical Information
+  diseases: string[];
+  
+  // Assignments
+  doctorId: string | number;
+  nurseIds: string[];
+  
+  // Financial
+  initialDeposit: number;
+  
+  // Accommodation
+  roomType: RoomType;
 }

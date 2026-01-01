@@ -43,10 +43,11 @@ export function AddStaffDialog({ trigger }: AddStaffDialogProps) {
       return;
     }
 
-    // Phone validation (basic)
-    const phoneRegex = /^\d{3}-\d{4}$/;
-    if (!phoneRegex.test(formData.phone)) {
-      setError('Phone number must be in format XXX-XXXX (e.g., 555-0123)');
+    // Phone validation (Pakistani format)
+    // Accepts formats: +92-XXX-XXXXXXX, +92XXXXXXXXXX, 0XXX-XXXXXXX, 0XXXXXXXXXX
+    const phoneRegex = /^(\+92|0)?[0-9]{3}-?[0-9]{7}$|^(\+92|0)?[0-9]{10}$/;
+    if (!phoneRegex.test(formData.phone.replace(/\s/g, ''))) {
+      setError('Please enter a valid Pakistani phone number (e.g., +92-300-1234567 or 0300-1234567)');
       return;
     }
 
@@ -211,13 +212,12 @@ export function AddStaffDialog({ trigger }: AddStaffDialogProps) {
                   type="tel"
                   value={formData.phone}
                   onChange={(e) => handleInputChange('phone', e.target.value)}
-                  placeholder="555-0123"
-                  pattern="[0-9]{3}-[0-9]{4}"
+                  placeholder="+92-300-1234567 or 0300-1234567"
                   required
                   disabled={isLoading}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Format: 555-0123
+                  Pakistani format: +92-300-1234567 or 0300-1234567
                 </p>
               </div>
 

@@ -50,7 +50,7 @@ export default function Patients() {
             trigger={
               <Button className="gap-2 whitespace-nowrap">
                 <UserPlus className="h-4 w-4" />
-                Add Patient
+                Register Patient
               </Button>
             }
           />
@@ -98,7 +98,7 @@ export default function Patients() {
                   trigger={
                     <Button className="gap-2">
                       <Plus className="h-4 w-4" />
-                      Add First Patient
+                      Register First Patient
                     </Button>
                   }
                 />

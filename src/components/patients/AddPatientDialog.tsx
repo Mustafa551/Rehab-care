@@ -6,11 +6,70 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Plus, User, MapPin, Calendar, Stethoscope, Baby, Users, UserCheck, Mail, Phone, Loader2 } from 'lucide-react';
-import { AgeGroup } from '@/types';
+import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { 
+  Plus, 
+  User, 
+  MapPin, 
+  Calendar, 
+  Stethoscope, 
+  Baby, 
+  Users, 
+  UserCheck, 
+  Mail, 
+  Phone, 
+  Loader2,
+  Heart,
+  DollarSign,
+  Building,
+  AlertCircle,
+  CheckCircle,
+  ArrowRight,
+  ArrowLeft
+} from 'lucide-react';
+import { AgeGroup, Gender, RoomType, Doctor, Nurse, Disease } from '@/types';
 import { toast } from 'sonner';
+
+// Mock data for comprehensive registration
+const DISEASES: Disease[] = [
+  { id: 'fever', name: 'Fever' },
+  { id: 'diabetes', name: 'Diabetes' },
+  { id: 'blood-pressure', name: 'Blood Pressure' },
+  { id: 'heart-disease', name: 'Heart Disease' },
+  { id: 'asthma', name: 'Asthma' },
+  { id: 'arthritis', name: 'Arthritis' },
+  { id: 'depression', name: 'Depression' },
+  { id: 'anxiety', name: 'Anxiety' },
+  { id: 'stroke', name: 'Stroke' },
+  { id: 'cancer', name: 'Cancer' },
+  { id: 'kidney-disease', name: 'Kidney Disease' },
+  { id: 'liver-disease', name: 'Liver Disease' }
+];
+
+const DOCTORS: Doctor[] = [
+  { id: 1, name: 'Dr. Ahmed Khan', specialization: 'Cardiologist', diseases: ['heart-disease', 'blood-pressure'] },
+  { id: 2, name: 'Dr. Fatima Ali', specialization: 'Endocrinologist', diseases: ['diabetes', 'kidney-disease'] },
+  { id: 3, name: 'Dr. Hassan Sheikh', specialization: 'Pulmonologist', diseases: ['asthma', 'fever'] },
+  { id: 4, name: 'Dr. Ayesha Malik', specialization: 'Psychiatrist', diseases: ['depression', 'anxiety'] },
+  { id: 5, name: 'Dr. Omar Siddique', specialization: 'General Physician', diseases: ['fever', 'arthritis'] },
+  { id: 6, name: 'Dr. Zainab Qureshi', specialization: 'Oncologist', diseases: ['cancer'] },
+  { id: 7, name: 'Dr. Bilal Ahmad', specialization: 'Neurologist', diseases: ['stroke'] }
+];
+
+const NURSES: Nurse[] = [
+  { id: 1, name: 'Nurse Aisha', type: 'fresh', description: 'Fresh Nurse - General Care' },
+  { id: 2, name: 'Nurse Khadija', type: 'bscn', description: 'BScN Specialized Nurse - Advanced Care' },
+  { id: 3, name: 'Nurse Mariam', type: 'fresh', description: 'Fresh Nurse - Patient Support' },
+  { id: 4, name: 'Nurse Saira', type: 'bscn', description: 'BScN Specialized Nurse - Critical Care' },
+  { id: 5, name: 'Nurse Rubina', type: 'fresh', description: 'Fresh Nurse - Daily Care' },
+  { id: 6, name: 'Nurse Farah', type: 'bscn', description: 'BScN Specialized Nurse - Rehabilitation' }
+];
 
 interface AddPatientDialogProps {
   trigger?: React.ReactNode;
@@ -20,119 +79,564 @@ export function AddPatientDialog({ trigger }: AddPatientDialogProps) {
   const { patients, addPatient, getDoctors } = useData();
   const [open, setOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [currentStep, setCurrentStep] = useState(1);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  
   const [formData, setFormData] = useState({
+    // Personal Information
     name: '',
-    email: '',
+    age: 0,
+    gender: 'male' as Gender,
     phone: '',
+    address: '',
+    emergencyContact: '',
+    
+    // Medical Information
+    diseases: [] as string[],
+    
+    // Assignments
+    doctorId: '',
+    nurseIds: [] as string[],
+    
+    // Financial
+    initialDeposit: 0,
+    
+    // Accommodation
+    roomType: 'general' as RoomType,
+    
+    // Legacy fields for compatibility
+    email: '',
     dateOfBirth: '',
     medicalCondition: '',
     assignedDoctorId: 'none',
     status: 'active' as 'active' | 'inactive' | 'discharged',
-    // Legacy fields for compatibility
-    age: '',
     condition: '',
     roomNumber: '',
     admissionDate: new Date().toISOString().split('T')[0],
   });
 
-  // Calculate age from date of birth
-  const calculateAge = (dateOfBirth: string) => {
-    if (!dateOfBirth) return 0;
-    const today = new Date();
-    const birthDate = new Date(dateOfBirth);
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
+  const totalSteps = 6;
+
+  const validateStep = (step: number): boolean => {
+    const newErrors: Record<string, string> = {};
+
+    switch (step) {
+      case 1: // Personal Information
+        if (!formData.name.trim()) newErrors.name = 'Full name is required';
+        if (formData.age <= 0) newErrors.age = 'Valid age is required';
+        if (!formData.phone.trim()) {
+          newErrors.phone = 'Phone number is required';
+        } else {
+          // Pakistani phone number validation
+          // Accepts formats: +92-XXX-XXXXXXX, +92XXXXXXXXXX, 0XXX-XXXXXXX, 0XXXXXXXXXX
+          const pkPhoneRegex = /^(\+92|0)?[0-9]{3}-?[0-9]{7}$|^(\+92|0)?[0-9]{10}$/;
+          if (!pkPhoneRegex.test(formData.phone.replace(/\s/g, ''))) {
+            newErrors.phone = 'Please enter a valid Pakistani phone number (e.g., +92-300-1234567 or 0300-1234567)';
+          }
+        }
+        if (!formData.address.trim()) newErrors.address = 'Address is required';
+        if (!formData.emergencyContact.trim()) newErrors.emergencyContact = 'Emergency contact is required';
+        break;
+      
+      case 2: // Disease Selection
+        if (formData.diseases.length === 0) newErrors.diseases = 'Please select at least one disease';
+        break;
+      
+      case 3: // Doctor Selection
+        if (!formData.doctorId) newErrors.doctorId = 'Please select a doctor';
+        break;
+      
+      case 4: // Nurse Selection
+        if (formData.nurseIds.length !== 2) newErrors.nurseIds = 'Please select exactly 2 nurses';
+        break;
+      
+      case 5: // Initial Deposit
+        if (formData.initialDeposit <= 0) newErrors.initialDeposit = 'Initial deposit must be greater than 0';
+        break;
     }
-    return age;
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
-  const age = formData.dateOfBirth ? calculateAge(formData.dateOfBirth) : (formData.age ? parseInt(formData.age) : 0);
-  const ageGroup: AgeGroup = age < 18 ? 'youth' : 'adult';
-  const doctors = getDoctors();
-  
-  // Get available room numbers
-  const occupiedRooms = patients.map(p => p.roomNumber);
-  const youthRooms = Array.from({ length: 10 }, (_, i) => 201 + i);
-  const adultRooms = Array.from({ length: 10 }, (_, i) => 101 + i);
-  const availableYouthRooms = youthRooms.filter(room => !occupiedRooms.includes(room));
-  const availableAdultRooms = adultRooms.filter(room => !occupiedRooms.includes(room));
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Validate form
-    if (!formData.name || !formData.email || !formData.phone || !formData.dateOfBirth || !formData.medicalCondition) {
-      toast.error('Please fill in all required fields');
-      return;
+  const handleNext = () => {
+    if (validateStep(currentStep)) {
+      setCurrentStep(prev => Math.min(prev + 1, totalSteps));
     }
+  };
 
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.email)) {
-      toast.error('Please enter a valid email address');
-      return;
-    }
+  const handlePrevious = () => {
+    setCurrentStep(prev => Math.max(prev - 1, 1));
+  };
 
-    // Validate phone format (XXX-XXXX)
-    const phoneRegex = /^\d{3}-\d{4}$/;
-    if (!phoneRegex.test(formData.phone)) {
-      toast.error('Phone number must be in format XXX-XXXX');
-      return;
+  const handleInputChange = (field: string, value: any) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    // Clear error when user starts typing
+    if (errors[field]) {
+      setErrors(prev => ({ ...prev, [field]: '' }));
     }
+  };
+
+  const handleDiseaseToggle = (diseaseId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      diseases: prev.diseases.includes(diseaseId)
+        ? prev.diseases.filter(id => id !== diseaseId)
+        : [...prev.diseases, diseaseId]
+    }));
+  };
+
+  const handleNurseToggle = (nurseId: string) => {
+    setFormData(prev => {
+      const currentNurses = prev.nurseIds;
+      if (currentNurses.includes(nurseId)) {
+        return { ...prev, nurseIds: currentNurses.filter(id => id !== nurseId) };
+      } else if (currentNurses.length < 2) {
+        return { ...prev, nurseIds: [...currentNurses, nurseId] };
+      }
+      return prev; // Don't add if already 2 nurses selected
+    });
+  };
+
+  const getAvailableDoctors = () => {
+    return DOCTORS.filter(doctor => 
+      doctor.diseases.some(disease => formData.diseases.includes(disease))
+    );
+  };
+
+  const handleSubmit = async () => {
+    if (!validateStep(totalSteps)) return;
 
     setIsSubmitting(true);
 
     try {
+      // Prepare patient data with all registration information
       const newPatient = {
         name: formData.name,
-        email: formData.email,
+        email: `${formData.name.toLowerCase().replace(/\s+/g, '.')}@patient.com`, // Generate email
         phone: formData.phone,
-        dateOfBirth: formData.dateOfBirth,
-        medicalCondition: formData.medicalCondition,
-        assignedDoctorId: formData.assignedDoctorId === 'none' ? undefined : Number(formData.assignedDoctorId),
+        dateOfBirth: new Date(Date.now() - formData.age * 365.25 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        medicalCondition: formData.diseases.map(id => DISEASES.find(d => d.id === id)?.name).join(', '),
+        assignedDoctorId: formData.doctorId ? Number(formData.doctorId) : undefined,
         status: formData.status,
+        // New registration fields
+        age: formData.age,
+        gender: formData.gender,
+        address: formData.address,
+        emergencyContact: formData.emergencyContact,
+        diseases: formData.diseases,
+        assignedNurses: formData.nurseIds,
+        initialDeposit: formData.initialDeposit,
+        roomType: formData.roomType,
         // Legacy fields for compatibility
-        age,
-        ageGroup,
-        condition: formData.medicalCondition,
-        roomNumber: parseInt(formData.roomNumber) || Math.floor(Math.random() * 100) + 100,
+        ageGroup: formData.age < 18 ? 'youth' as AgeGroup : 'adult' as AgeGroup,
+        condition: formData.diseases.map(id => DISEASES.find(d => d.id === id)?.name).join(', '),
+        roomNumber: Math.floor(Math.random() * 100) + (formData.age < 18 ? 200 : 100),
         admissionDate: formData.admissionDate,
         assignedStaffId: null,
       };
 
       await addPatient(newPatient);
       
-      toast.success('Patient added successfully! Staff will be automatically assigned for today.');
+      toast.success('Patient registered successfully with comprehensive details!');
       
       // Reset form and close dialog
       setFormData({
         name: '',
-        email: '',
+        age: 0,
+        gender: 'male',
         phone: '',
+        address: '',
+        emergencyContact: '',
+        diseases: [],
+        doctorId: '',
+        nurseIds: [],
+        initialDeposit: 0,
+        roomType: 'general',
+        email: '',
         dateOfBirth: '',
         medicalCondition: '',
         assignedDoctorId: 'none',
         status: 'active',
-        age: '',
         condition: '',
         roomNumber: '',
         admissionDate: new Date().toISOString().split('T')[0],
       });
+      setCurrentStep(1);
       setOpen(false);
     } catch (error) {
-      console.error('Failed to add patient:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to add patient');
+      console.error('Failed to register patient:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to register patient');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
+  const renderStepContent = () => {
+    switch (currentStep) {
+      case 1:
+        return (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 mb-4">
+              <User className="h-5 w-5 text-primary" />
+              <h3 className="text-lg font-semibold">Personal Information</h3>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Full Name *</Label>
+                <Input
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) => handleInputChange('name', e.target.value)}
+                  placeholder="Enter full name"
+                />
+                {errors.name && <p className="text-sm text-red-500">{errors.name}</p>}
+              </div>
 
+              <div className="space-y-2">
+                <Label htmlFor="age">Age *</Label>
+                <Input
+                  id="age"
+                  type="number"
+                  value={formData.age || ''}
+                  onChange={(e) => handleInputChange('age', parseInt(e.target.value) || 0)}
+                  placeholder="Enter age"
+                  min="1"
+                  max="120"
+                />
+                {errors.age && <p className="text-sm text-red-500">{errors.age}</p>}
+              </div>
+
+              <div className="space-y-2">
+                <Label>Gender *</Label>
+                <RadioGroup
+                  value={formData.gender}
+                  onValueChange={(value) => handleInputChange('gender', value as Gender)}
+                  className="flex gap-6"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="male" id="male" />
+                    <Label htmlFor="male">Male</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="female" id="female" />
+                    <Label htmlFor="female">Female</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="other" id="other" />
+                    <Label htmlFor="other">Other</Label>
+                  </div>
+                </RadioGroup>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="phone">Phone Number (Pakistan) *</Label>
+                <Input
+                  id="phone"
+                  value={formData.phone}
+                  onChange={(e) => handleInputChange('phone', e.target.value)}
+                  placeholder="e.g., +92-300-1234567 or 0300-1234567"
+                />
+                {errors.phone && <p className="text-sm text-red-500">{errors.phone}</p>}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="address">Address *</Label>
+              <Textarea
+                id="address"
+                value={formData.address}
+                onChange={(e) => handleInputChange('address', e.target.value)}
+                placeholder="Enter complete address"
+                rows={3}
+              />
+              {errors.address && <p className="text-sm text-red-500">{errors.address}</p>}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="emergencyContact">Emergency Contact *</Label>
+              <Input
+                id="emergencyContact"
+                value={formData.emergencyContact}
+                onChange={(e) => handleInputChange('emergencyContact', e.target.value)}
+                placeholder="Emergency contact name and phone"
+              />
+              {errors.emergencyContact && <p className="text-sm text-red-500">{errors.emergencyContact}</p>}
+            </div>
+          </div>
+        );
+
+      case 2:
+        return (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 mb-4">
+              <Stethoscope className="h-5 w-5 text-primary" />
+              <h3 className="text-lg font-semibold">Disease Selection</h3>
+            </div>
+            
+            <p className="text-sm text-muted-foreground mb-4">
+              Select all diseases that apply to the patient. You can select multiple diseases.
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-60 overflow-y-auto">
+              {DISEASES.map((disease) => (
+                <div
+                  key={disease.id}
+                  className={`flex items-center space-x-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                    formData.diseases.includes(disease.id)
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border hover:border-primary/50'
+                  }`}
+                  onClick={() => handleDiseaseToggle(disease.id)}
+                >
+                  <Checkbox
+                    checked={formData.diseases.includes(disease.id)}
+                    onChange={() => handleDiseaseToggle(disease.id)}
+                  />
+                  <Label className="cursor-pointer">{disease.name}</Label>
+                </div>
+              ))}
+            </div>
+
+            {formData.diseases.length > 0 && (
+              <div className="mt-4">
+                <Label className="text-sm font-medium">Selected Diseases:</Label>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {formData.diseases.map((diseaseId) => {
+                    const disease = DISEASES.find(d => d.id === diseaseId);
+                    return (
+                      <Badge key={diseaseId} variant="secondary">
+                        {disease?.name}
+                      </Badge>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {errors.diseases && <p className="text-sm text-red-500">{errors.diseases}</p>}
+          </div>
+        );
+
+      case 3:
+        const availableDoctors = getAvailableDoctors();
+        return (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 mb-4">
+              <UserCheck className="h-5 w-5 text-primary" />
+              <h3 className="text-lg font-semibold">Doctor Selection</h3>
+            </div>
+
+            <p className="text-sm text-muted-foreground mb-4">
+              Select a doctor based on the diseases selected. Only doctors who can treat the selected diseases are shown.
+            </p>
+
+            {availableDoctors.length === 0 ? (
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  No doctors available for the selected diseases. Please go back and review your disease selection.
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <div className="grid grid-cols-1 gap-3 max-h-60 overflow-y-auto">
+                {availableDoctors.map((doctor) => (
+                  <Card
+                    key={doctor.id}
+                    className={`cursor-pointer transition-colors ${
+                      formData.doctorId === doctor.id.toString()
+                        ? 'border-primary bg-primary/5'
+                        : 'hover:border-primary/50'
+                    }`}
+                    onClick={() => handleInputChange('doctorId', doctor.id.toString())}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-2">
+                          <h4 className="font-semibold">{doctor.name}</h4>
+                          <p className="text-sm text-muted-foreground">{doctor.specialization}</p>
+                          <div className="flex flex-wrap gap-1">
+                            {doctor.diseases.filter(d => formData.diseases.includes(d)).map((diseaseId) => {
+                              const disease = DISEASES.find(d => d.id === diseaseId);
+                              return (
+                                <Badge key={diseaseId} variant="outline" className="text-xs">
+                                  {disease?.name}
+                                </Badge>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        {formData.doctorId === doctor.id.toString() && (
+                          <CheckCircle className="h-5 w-5 text-primary" />
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+
+            {errors.doctorId && <p className="text-sm text-red-500">{errors.doctorId}</p>}
+          </div>
+        );
+
+      case 4:
+        return (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 mb-4">
+              <Heart className="h-5 w-5 text-primary" />
+              <h3 className="text-lg font-semibold">Nurse Selection</h3>
+            </div>
+
+            <p className="text-sm text-muted-foreground mb-4">
+              Select exactly 2 nurses for the patient. Each patient must be assigned two nurses for comprehensive care.
+            </p>
+
+            <div className="grid grid-cols-1 gap-3 max-h-60 overflow-y-auto">
+              {NURSES.map((nurse) => (
+                <Card
+                  key={nurse.id}
+                  className={`cursor-pointer transition-colors ${
+                    formData.nurseIds.includes(nurse.id.toString())
+                      ? 'border-primary bg-primary/5'
+                      : formData.nurseIds.length >= 2
+                      ? 'opacity-50 cursor-not-allowed'
+                      : 'hover:border-primary/50'
+                  }`}
+                  onClick={() => handleNurseToggle(nurse.id.toString())}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-2">
+                        <h4 className="font-semibold">{nurse.name}</h4>
+                        <p className="text-sm text-muted-foreground">{nurse.description}</p>
+                        <Badge variant={nurse.type === 'bscn' ? 'default' : 'secondary'}>
+                          {nurse.type === 'bscn' ? 'BScN Specialized' : 'Fresh Nurse'}
+                        </Badge>
+                      </div>
+                      {formData.nurseIds.includes(nurse.id.toString()) && (
+                        <CheckCircle className="h-5 w-5 text-primary" />
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {formData.nurseIds.length > 0 && (
+              <div className="mt-4">
+                <Label className="text-sm font-medium">
+                  Selected Nurses ({formData.nurseIds.length}/2):
+                </Label>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {formData.nurseIds.map((nurseId) => {
+                    const nurse = NURSES.find(n => n.id.toString() === nurseId);
+                    return (
+                      <Badge key={nurseId} variant="secondary">
+                        {nurse?.name}
+                      </Badge>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {errors.nurseIds && <p className="text-sm text-red-500">{errors.nurseIds}</p>}
+          </div>
+        );
+
+      case 5:
+        return (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 mb-4">
+              <DollarSign className="h-5 w-5 text-primary" />
+              <h3 className="text-lg font-semibold">Initial Deposit</h3>
+            </div>
+
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="initialDeposit">Initial Deposit Amount (PKR) *</Label>
+                <Input
+                  id="initialDeposit"
+                  type="number"
+                  value={formData.initialDeposit || ''}
+                  onChange={(e) => handleInputChange('initialDeposit', parseFloat(e.target.value) || 0)}
+                  placeholder="Enter deposit amount"
+                  min="1"
+                />
+                {errors.initialDeposit && <p className="text-sm text-red-500">{errors.initialDeposit}</p>}
+              </div>
+
+              {formData.initialDeposit > 0 && (
+                <div className="p-4 bg-muted rounded-lg">
+                  <h4 className="font-semibold mb-2">Deposit Summary</h4>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex justify-between">
+                      <span>Initial Deposit:</span>
+                      <span className="font-medium">PKR {formData.initialDeposit.toLocaleString()}</span>
+                    </div>
+                    <Separator className="my-2" />
+                    <div className="flex justify-between font-semibold">
+                      <span>Total Amount:</span>
+                      <span>PKR {formData.initialDeposit.toLocaleString()}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+
+      case 6:
+        return (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 mb-4">
+              <Building className="h-5 w-5 text-primary" />
+              <h3 className="text-lg font-semibold">Room Assignment</h3>
+            </div>
+
+            <p className="text-sm text-muted-foreground mb-4">
+              Select the type of room for the patient's stay.
+            </p>
+
+            <div className="grid grid-cols-1 gap-3">
+              {[
+                { value: 'general', label: 'General Ward', description: 'Shared room with basic facilities', price: 'PKR 2,000/day' },
+                { value: 'semi-private', label: 'Semi-Private', description: 'Shared room with 2 beds', price: 'PKR 3,500/day' },
+                { value: 'private', label: 'Private', description: 'Single room with premium facilities', price: 'PKR 5,000/day' }
+              ].map((room) => (
+                <Card
+                  key={room.value}
+                  className={`cursor-pointer transition-colors ${
+                    formData.roomType === room.value
+                      ? 'border-primary bg-primary/5'
+                      : 'hover:border-primary/50'
+                  }`}
+                  onClick={() => handleInputChange('roomType', room.value as RoomType)}
+                >
+                  <CardContent className="p-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-semibold">{room.label}</h4>
+                        {formData.roomType === room.value && (
+                          <CheckCircle className="h-5 w-5 text-primary" />
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground">{room.description}</p>
+                      <p className="text-sm font-medium text-primary">{room.price}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -143,263 +647,74 @@ export function AddPatientDialog({ trigger }: AddPatientDialogProps) {
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <User className="h-5 w-5" />
-            Add New Patient
+            Patient Registration - Step {currentStep} of {totalSteps}
           </DialogTitle>
         </DialogHeader>
         
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Form Section */}
-          <div className="space-y-4">
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Full Name *</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => handleInputChange('name', e.target.value)}
-                  placeholder="Enter patient's full name"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="email">Email Address *</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => handleInputChange('email', e.target.value)}
-                  placeholder="patient@example.com"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="phone">Phone Number *</Label>
-                <Input
-                  id="phone"
-                  value={formData.phone}
-                  onChange={(e) => handleInputChange('phone', e.target.value)}
-                  placeholder="123-4567"
-                  pattern="\d{3}-\d{4}"
-                  title="Phone number must be in format XXX-XXXX"
-                  required
-                />
-                <p className="text-xs text-muted-foreground">Format: XXX-XXXX</p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="dateOfBirth">Date of Birth *</Label>
-                <Input
-                  id="dateOfBirth"
-                  type="date"
-                  value={formData.dateOfBirth}
-                  onChange={(e) => handleInputChange('dateOfBirth', e.target.value)}
-                  max={new Date().toISOString().split('T')[0]}
-                  required
-                />
-                {formData.dateOfBirth && (
-                  <p className="text-xs text-muted-foreground">Age: {age} years old</p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="assignedDoctor">Assign Doctor</Label>
-                <Select
-                  value={formData.assignedDoctorId}
-                  onValueChange={(value) => handleInputChange('assignedDoctorId', value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a doctor (optional)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No doctor assigned</SelectItem>
-                    {doctors.map(doctor => (
-                      <SelectItem key={doctor.id} value={doctor.id.toString()}>
-                        <div className="flex items-center gap-2">
-                          <Stethoscope className="h-4 w-4" />
-                          {doctor.name}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {doctors.length === 0 && (
-                  <p className="text-xs text-muted-foreground">No doctors available. Add doctors first.</p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="status">Status</Label>
-                <Select
-                  value={formData.status}
-                  onValueChange={(value: 'active' | 'inactive' | 'discharged') => handleInputChange('status', value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="inactive">Inactive</SelectItem>
-                    <SelectItem value="discharged">Discharged</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="medicalCondition">Medical Condition *</Label>
-                <Textarea
-                  id="medicalCondition"
-                  value={formData.medicalCondition}
-                  onChange={(e) => handleInputChange('medicalCondition', e.target.value)}
-                  placeholder="Describe the patient's condition and rehabilitation needs"
-                  rows={3}
-                  required
-                />
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <Button type="submit" className="flex-1" disabled={isSubmitting}>
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Adding Patient...
-                    </>
-                  ) : (
-                    'Add Patient'
-                  )}
-                </Button>
-                <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={isSubmitting}>
-                  Cancel
-                </Button>
-              </div>
-            </form>
+        {/* Progress Bar */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium">Step {currentStep} of {totalSteps}</span>
+            <span className="text-sm text-muted-foreground">
+              {Math.round((currentStep / totalSteps) * 100)}% Complete
+            </span>
           </div>
-
-          {/* Preview Section */}
-          <div className="space-y-4">
-            <h3 className="font-semibold text-foreground">Preview</h3>
-            
-            <Card variant="elevated">
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold text-lg">
-                      {formData.name ? formData.name.split(' ').map(n => n[0]).join('') : '??'}
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-foreground">
-                        {formData.name || 'Patient Name'}
-                      </h3>
-                      <p className="text-sm text-muted-foreground">
-                        Age: {age || '--'}
-                      </p>
-                    </div>
-                  </div>
-                  <Badge variant={ageGroup === 'youth' ? 'default' : 'secondary'}>
-                    {ageGroup === 'youth' ? (
-                      <>
-                        <Baby className="h-3 w-3 mr-1" />
-                        Youth
-                      </>
-                    ) : (
-                      <>
-                        <Users className="h-3 w-3 mr-1" />
-                        Adult
-                      </>
-                    )}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center gap-2 text-sm">
-                  <Mail className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">Email</span>
-                  <span className="font-medium text-foreground">
-                    {formData.email || '--'}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-2 text-sm">
-                  <Phone className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">Phone</span>
-                  <span className="font-medium text-foreground">
-                    {formData.phone || '--'}
-                  </span>
-                </div>
-                
-                <div className="flex items-center gap-2 text-sm">
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">Date of Birth</span>
-                  <span className="font-medium text-foreground">
-                    {formData.dateOfBirth ? 
-                      new Date(formData.dateOfBirth).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric'
-                      }) : '--'
-                    }
-                  </span>
-                </div>
-                
-                <div className="flex items-start gap-2 text-sm">
-                  <Stethoscope className="h-4 w-4 text-muted-foreground mt-0.5" />
-                  <span className="text-muted-foreground line-clamp-3">
-                    {formData.medicalCondition || 'Medical condition will appear here...'}
-                  </span>
-                </div>
-
-                {formData.assignedDoctorId && formData.assignedDoctorId !== 'none' && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <UserCheck className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-muted-foreground">Doctor</span>
-                    <span className="font-medium text-foreground">
-                      {doctors.find(d => d.id.toString() === formData.assignedDoctorId)?.name || '--'}
-                    </span>
-                  </div>
-                )}
-
-                <div className="flex items-center gap-2 text-sm">
-                  <Badge variant={formData.status === 'active' ? 'default' : formData.status === 'inactive' ? 'secondary' : 'destructive'}>
-                    {formData.status}
-                  </Badge>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Doctor availability info */}
-            <Card variant="flat" className="bg-muted/50">
-              <CardContent className="pt-4">
-                <div className="space-y-2">
-                  <h4 className="text-sm font-medium">Assignment Information</h4>
-                  <div className="text-xs space-y-1">
-                    <div>
-                      <span className="text-muted-foreground">Available doctors:</span>
-                      <span className="ml-1 font-medium">{doctors.length}</span>
-                    </div>
-                    <p className="text-muted-foreground">
-                      • Doctor assignment is permanent (optional)
-                    </p>
-                    <p className="text-muted-foreground">
-                      • Nurse/caretaker will be auto-assigned for today
-                    </p>
-                    <p className="text-muted-foreground">
-                      • Non-doctor staff rotate daily
-                    </p>
-                  </div>
-                  {doctors.length === 0 && (
-                    <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded">
-                      No doctors available. Add doctors from the Staff page first.
-                    </p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+          <div className="w-full bg-muted rounded-full h-2">
+            <div
+              className="bg-primary h-2 rounded-full transition-all duration-300"
+              style={{ width: `${(currentStep / totalSteps) * 100}%` }}
+            />
           </div>
+        </div>
+
+        {/* Step Content */}
+        <div className="min-h-[400px]">
+          {renderStepContent()}
+        </div>
+
+        {/* Navigation Buttons */}
+        <div className="flex justify-between pt-6 border-t">
+          <Button
+            variant="outline"
+            onClick={handlePrevious}
+            disabled={currentStep === 1}
+            className="flex items-center gap-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Previous
+          </Button>
+
+          {currentStep < totalSteps ? (
+            <Button
+              onClick={handleNext}
+              className="flex items-center gap-2"
+            >
+              Next
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          ) : (
+            <Button
+              onClick={handleSubmit}
+              disabled={isSubmitting}
+              className="flex items-center gap-2"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Registering...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="h-4 w-4" />
+                  Complete Registration
+                </>
+              )}
+            </Button>
+          )}
         </div>
       </DialogContent>
     </Dialog>
