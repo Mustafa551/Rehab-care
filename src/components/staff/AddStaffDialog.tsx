@@ -5,10 +5,28 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Plus, UserPlus, Mail, Phone, Stethoscope, UserCheck, Users, Activity, Heart, Shield, Zap, Loader2, AlertCircle } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
+import { Plus, UserPlus, Mail, Phone, Stethoscope, Heart, Loader2, AlertCircle, CheckCircle, User } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+
+// Staff role definitions for nurses and doctors
+const DOCTOR_SPECIALIZATIONS = [
+  { id: 'cardiologist', name: 'Cardiologist', diseases: ['Heart Disease', 'Blood Pressure'] },
+  { id: 'endocrinologist', name: 'Endocrinologist', diseases: ['Diabetes', 'Kidney Disease'] },
+  { id: 'pulmonologist', name: 'Pulmonologist', diseases: ['Asthma', 'Fever'] },
+  { id: 'psychiatrist', name: 'Psychiatrist', diseases: ['Depression', 'Anxiety'] },
+  { id: 'general', name: 'General Physician', diseases: ['Fever', 'Arthritis'] },
+  { id: 'oncologist', name: 'Oncologist', diseases: ['Cancer'] },
+  { id: 'neurologist', name: 'Neurologist', diseases: ['Stroke'] }
+];
+
+const NURSE_TYPES = [
+  { id: 'fresh', name: 'Fresh Nurse', description: 'General care and patient support' },
+  { id: 'bscn', name: 'BScN Specialized Nurse', description: 'Advanced care and specialized procedures' }
+];
 
 interface AddStaffDialogProps {
   trigger?: React.ReactNode;
@@ -21,10 +39,14 @@ export function AddStaffDialog({ trigger }: AddStaffDialogProps) {
   const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
-    role: 'doctor' as 'nurse' | 'caretaker' | 'therapist' | 'doctor',
+    role: 'doctor' as 'nurse' | 'doctor',
     email: '',
     phone: '',
     isOnDuty: true,
+    // Doctor specific fields
+    specialization: '',
+    // Nurse specific fields
+    nurseType: 'fresh' as 'fresh' | 'bscn',
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -36,6 +58,12 @@ export function AddStaffDialog({ trigger }: AddStaffDialogProps) {
       return;
     }
 
+    // Role-specific validation
+    if (formData.role === 'doctor' && !formData.specialization) {
+      setError('Please select a specialization for the doctor');
+      return;
+    }
+
     // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
@@ -44,7 +72,6 @@ export function AddStaffDialog({ trigger }: AddStaffDialogProps) {
     }
 
     // Phone validation (Pakistani format)
-    // Accepts formats: +92-XXX-XXXXXXX, +92XXXXXXXXXX, 0XXX-XXXXXXX, 0XXXXXXXXXX
     const phoneRegex = /^(\+92|0)?[0-9]{3}-?[0-9]{7}$|^(\+92|0)?[0-9]{10}$/;
     if (!phoneRegex.test(formData.phone.replace(/\s/g, ''))) {
       setError('Please enter a valid Pakistani phone number (e.g., +92-300-1234567 or 0300-1234567)');
@@ -61,9 +88,12 @@ export function AddStaffDialog({ trigger }: AddStaffDialogProps) {
         email: formData.email,
         phone: formData.phone,
         isOnDuty: formData.isOnDuty,
+        // Add specialization info to name for doctors
+        ...(formData.role === 'doctor' && formData.specialization && {
+          name: `Dr. ${formData.name}`,
+        }),
       };
 
-      // Add staff using context function (which calls the API)
       await addStaffMember(newStaff);
       
       // Reset form and close dialog
@@ -73,6 +103,8 @@ export function AddStaffDialog({ trigger }: AddStaffDialogProps) {
         email: '',
         phone: '',
         isOnDuty: true,
+        specialization: '',
+        nurseType: 'fresh',
       });
       setOpen(false);
     } catch (error: any) {
@@ -88,37 +120,17 @@ export function AddStaffDialog({ trigger }: AddStaffDialogProps) {
     if (error) setError(null);
   };
 
-  const getRoleIcon = (role: string) => {
-    switch (role) {
-      case 'doctor': return <Stethoscope className="h-4 w-4" />;
-      case 'nurse': return <Heart className="h-4 w-4" />;
-      case 'caretaker': return <Shield className="h-4 w-4" />;
-      case 'therapist': return <Zap className="h-4 w-4" />;
-      default: return <UserCheck className="h-4 w-4" />;
-    }
-  };
-
-  const getRoleColor = (role: string) => {
-    switch (role) {
-      case 'doctor': return 'bg-blue-100 text-blue-700';
-      case 'nurse': return 'bg-info/10 text-info';
-      case 'caretaker': return 'bg-success/10 text-success';
-      case 'therapist': return 'bg-warning/10 text-warning';
-      default: return 'bg-gray-100 text-gray-700';
-    }
-  };
-
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {trigger || (
           <Button className="gap-2">
             <Plus className="h-4 w-4" />
-            Add New Staff
+            Add Staff Member
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <UserPlus className="h-5 w-5" />
@@ -126,230 +138,287 @@ export function AddStaffDialog({ trigger }: AddStaffDialogProps) {
           </DialogTitle>
         </DialogHeader>
         
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Form Section */}
-          <div className="space-y-4">
-            {error && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Error Alert */}
+          {error && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Full Name *</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => handleInputChange('name', e.target.value)}
-                  placeholder="Enter staff member's full name"
-                  required
-                  disabled={isLoading}
-                />
-              </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Form Section */}
+            <div className="space-y-6">
+              {/* Basic Information */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <User className="h-5 w-5" />
+                    Basic Information
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Full Name *</Label>
+                    <Input
+                      id="name"
+                      value={formData.name}
+                      onChange={(e) => handleInputChange('name', e.target.value)}
+                      placeholder="Enter full name"
+                      required
+                      disabled={isLoading}
+                    />
+                  </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="role">Designation *</Label>
-                <Select
-                  value={formData.role}
-                  onValueChange={(value) => handleInputChange('role', value)}
-                  required
-                  disabled={isLoading}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select designation" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="doctor">
-                      <div className="flex items-center gap-2">
-                        <Stethoscope className="h-4 w-4 text-blue-600" />
-                        Doctor
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="nurse">
-                      <div className="flex items-center gap-2">
-                        <Heart className="h-4 w-4 text-red-500" />
-                        Nurse
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="caretaker">
-                      <div className="flex items-center gap-2">
-                        <Shield className="h-4 w-4 text-green-600" />
-                        Caretaker
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="therapist">
-                      <div className="flex items-center gap-2">
-                        <Zap className="h-4 w-4 text-orange-500" />
-                        Therapist
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email Address *</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => handleInputChange('email', e.target.value)}
+                      placeholder="staff@rehabcare.com"
+                      required
+                      disabled={isLoading}
+                    />
+                  </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="email">Email Address *</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => handleInputChange('email', e.target.value)}
-                  placeholder="staff.name@rehab.com"
-                  required
-                  disabled={isLoading}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Must be a valid email format
-                </p>
-              </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="phone">Phone Number *</Label>
+                    <Input
+                      id="phone"
+                      type="tel"
+                      value={formData.phone}
+                      onChange={(e) => handleInputChange('phone', e.target.value)}
+                      placeholder="+92-300-1234567 or 0300-1234567"
+                      required
+                      disabled={isLoading}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Pakistani format: +92-300-1234567 or 0300-1234567
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
 
-              <div className="space-y-2">
-                <Label htmlFor="phone">Phone Number *</Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  value={formData.phone}
-                  onChange={(e) => handleInputChange('phone', e.target.value)}
-                  placeholder="+92-300-1234567 or 0300-1234567"
-                  required
-                  disabled={isLoading}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Pakistani format: +92-300-1234567 or 0300-1234567
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="status">Initial Status</Label>
-                <Select
-                  value={formData.isOnDuty ? 'on-duty' : 'off-duty'}
-                  onValueChange={(value) => handleInputChange('isOnDuty', value === 'on-duty')}
-                  disabled={isLoading}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select initial status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="on-duty">
-                      <div className="flex items-center gap-2">
-                        <Activity className="h-4 w-4 text-green-500" />
-                        On Duty
+              {/* Role Selection */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Stethoscope className="h-5 w-5" />
+                    Role Selection
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-3">
+                    <Label>Select Role *</Label>
+                    <RadioGroup
+                      value={formData.role}
+                      onValueChange={(value) => handleInputChange('role', value)}
+                      className="grid grid-cols-2 gap-4"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="doctor" id="doctor" />
+                        <Label htmlFor="doctor" className="flex items-center gap-2">
+                          <Stethoscope className="h-4 w-4" />
+                          Doctor
+                        </Label>
                       </div>
-                    </SelectItem>
-                    <SelectItem value="off-duty">
-                      <div className="flex items-center gap-2">
-                        <Activity className="h-4 w-4 text-gray-400" />
-                        Off Duty
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="nurse" id="nurse" />
+                        <Label htmlFor="nurse" className="flex items-center gap-2">
+                          <Heart className="h-4 w-4" />
+                          Nurse
+                        </Label>
                       </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+                    </RadioGroup>
+                  </div>
 
-              <div className="flex gap-3 pt-4">
-                <Button type="submit" className="flex-1" disabled={isLoading}>
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Adding Staff...
-                    </>
-                  ) : (
-                    'Add Staff Member'
+                  {/* Doctor Specialization */}
+                  {formData.role === 'doctor' && (
+                    <div className="space-y-2">
+                      <Label htmlFor="specialization">Specialization *</Label>
+                      <Select
+                        value={formData.specialization}
+                        onValueChange={(value) => handleInputChange('specialization', value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select specialization" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {DOCTOR_SPECIALIZATIONS.map(spec => (
+                            <SelectItem key={spec.id} value={spec.id}>
+                              <div className="flex flex-col">
+                                <span>{spec.name}</span>
+                                <span className="text-xs text-muted-foreground">
+                                  Treats: {spec.diseases.join(', ')}
+                                </span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   )}
-                </Button>
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={() => setOpen(false)}
-                  disabled={isLoading}
-                >
-                  Cancel
-                </Button>
-              </div>
-            </form>
-          </div>
 
-          {/* Preview Section */}
-          <div className="space-y-4">
-            <h3 className="font-semibold text-foreground">Preview</h3>
-            
-            <Card variant="elevated">
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
+                  {/* Nurse Type */}
+                  {formData.role === 'nurse' && (
+                    <div className="space-y-2">
+                      <Label>Nurse Type</Label>
+                      <RadioGroup
+                        value={formData.nurseType}
+                        onValueChange={(value) => handleInputChange('nurseType', value)}
+                        className="space-y-2"
+                      >
+                        {NURSE_TYPES.map(type => (
+                          <div key={type.id} className="flex items-center space-x-2">
+                            <RadioGroupItem value={type.id} id={type.id} />
+                            <Label htmlFor={type.id} className="flex-1">
+                              <div>
+                                <div className="font-medium">{type.name}</div>
+                                <div className="text-xs text-muted-foreground">{type.description}</div>
+                              </div>
+                            </Label>
+                          </div>
+                        ))}
+                      </RadioGroup>
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <Label htmlFor="status">Initial Status</Label>
+                    <Select
+                      value={formData.isOnDuty ? 'on-duty' : 'off-duty'}
+                      onValueChange={(value) => handleInputChange('isOnDuty', value === 'on-duty')}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="on-duty">On Duty</SelectItem>
+                        <SelectItem value="off-duty">Off Duty</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Preview Section */}
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Preview</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
                   <div className="flex items-center gap-3">
                     <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold text-lg">
-                      {formData.name ? formData.name.split(' ').map(n => n[0]).join('') : '??'}
+                      {formData.role === 'doctor' ? (
+                        <Stethoscope className="h-6 w-6" />
+                      ) : (
+                        <Heart className="h-6 w-6" />
+                      )}
                     </div>
                     <div>
                       <h3 className="font-semibold text-foreground">
-                        {formData.name || 'Staff Member Name'}
+                        {formData.role === 'doctor' && formData.name ? `Dr. ${formData.name}` : formData.name || 'Staff Name'}
                       </h3>
-                      <Badge variant="secondary" className={getRoleColor(formData.role)}>
-                        {getRoleIcon(formData.role)}
-                        <span className="ml-1">{formData.role.charAt(0).toUpperCase() + formData.role.slice(1)}</span>
-                      </Badge>
+                      <p className="text-sm text-muted-foreground capitalize">
+                        {formData.role}
+                        {formData.role === 'doctor' && formData.specialization && 
+                          ` - ${DOCTOR_SPECIALIZATIONS.find(s => s.id === formData.specialization)?.name}`
+                        }
+                        {formData.role === 'nurse' && 
+                          ` - ${NURSE_TYPES.find(t => t.id === formData.nurseType)?.name}`
+                        }
+                      </p>
                     </div>
                   </div>
-                  <Badge variant={formData.isOnDuty ? 'default' : 'secondary'}>
-                    <Activity className={`h-3 w-3 mr-1 ${formData.isOnDuty ? 'text-green-500' : 'text-gray-400'}`} />
-                    {formData.isOnDuty ? 'On Duty' : 'Off Duty'}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center gap-2 text-sm">
-                  <Mail className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">Email</span>
-                  <span className="font-medium text-foreground">
-                    {formData.email || 'email@example.com'}
-                  </span>
-                </div>
-                
-                <div className="flex items-center gap-2 text-sm">
-                  <Phone className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">Phone</span>
-                  <span className="font-medium text-foreground">
-                    {formData.phone || '555-0123'}
-                  </span>
-                </div>
-                
-                <div className="flex items-center gap-2 text-sm">
-                  <Users className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">Assigned Patients</span>
-                  <span className="font-medium text-foreground">
-                    0 patients
-                  </span>
-                </div>
 
-                <div className="flex items-center gap-2 text-sm">
-                  <UserCheck className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">Role</span>
-                  <span className="font-medium text-foreground">
-                    {formData.role.charAt(0).toUpperCase() + formData.role.slice(1)}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
+                  <Separator />
 
-            {/* Info Card */}
-            <Card variant="flat" className="bg-muted/50">
-              <CardContent className="pt-4">
-                <div className="space-y-2">
-                  <h4 className="text-sm font-medium">Staff Information</h4>
-                  <div className="text-xs text-muted-foreground space-y-1">
-                    <p>• Choose the appropriate designation for the staff member</p>
-                    <p>• Doctors can be assigned to patients for medical oversight</p>
-                    <p>• Nurses, caretakers, and therapists handle daily patient care</p>
-                    <p>• Email format must be valid for system notifications</p>
-                    <p>• Phone number is used for emergency contact</p>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-sm">
+                      <Mail className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-muted-foreground">Email:</span>
+                      <span className="font-medium">{formData.email || '--'}</span>
+                    </div>
+
+                    <div className="flex items-center gap-2 text-sm">
+                      <Phone className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-muted-foreground">Phone:</span>
+                      <span className="font-medium">{formData.phone || '--'}</span>
+                    </div>
+
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-muted-foreground">Status:</span>
+                      <Badge variant={formData.isOnDuty ? 'default' : 'secondary'}>
+                        {formData.isOnDuty ? 'On Duty' : 'Off Duty'}
+                      </Badge>
+                    </div>
+
+                    {formData.role === 'doctor' && formData.specialization && (
+                      <div className="mt-3 p-3 bg-muted rounded-lg">
+                        <h4 className="text-sm font-medium mb-2">Can Treat:</h4>
+                        <div className="flex flex-wrap gap-1">
+                          {DOCTOR_SPECIALIZATIONS.find(s => s.id === formData.specialization)?.diseases.map(disease => (
+                            <Badge key={disease} variant="outline" className="text-xs">
+                              {disease}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+
+              {/* Information Card */}
+              <Card className="bg-muted/50">
+                <CardContent className="pt-6">
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium">Staff Information</h4>
+                    <div className="text-xs space-y-1">
+                      <p className="text-muted-foreground">
+                        • Only doctors and nurses can be added
+                      </p>
+                      <p className="text-muted-foreground">
+                        • Doctors require specialization selection
+                      </p>
+                      <p className="text-muted-foreground">
+                        • Nurses can be Fresh or BScN Specialized
+                      </p>
+                      <p className="text-muted-foreground">
+                        • Staff will be available for patient assignments
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </div>
-        </div>
+
+          {/* Submit Buttons */}
+          <div className="flex gap-3 pt-6 border-t">
+            <Button type="submit" className="flex-1" disabled={isLoading}>
+              {isLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Adding Staff...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Add Staff Member
+                </>
+              )}
+            </Button>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={isLoading}>
+              Cancel
+            </Button>
+          </div>
+        </form>
       </DialogContent>
     </Dialog>
   );
