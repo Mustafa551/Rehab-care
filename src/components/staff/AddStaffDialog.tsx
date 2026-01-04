@@ -83,14 +83,17 @@ export function AddStaffDialog({ trigger }: AddStaffDialogProps) {
 
     try {
       const newStaff = {
-        name: formData.name,
+        name: formData.name, // Backend will add "Dr." prefix automatically
         role: formData.role,
         email: formData.email,
         phone: formData.phone,
         isOnDuty: formData.isOnDuty,
-        // Add specialization info to name for doctors
+        // Add role-specific fields
         ...(formData.role === 'doctor' && formData.specialization && {
-          name: `Dr. ${formData.name}`,
+          specialization: formData.specialization,
+        }),
+        ...(formData.role === 'nurse' && {
+          nurseType: formData.nurseType,
         }),
       };
 

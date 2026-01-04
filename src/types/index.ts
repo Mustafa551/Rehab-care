@@ -38,11 +38,14 @@ export interface Patient {
 export interface StaffMember {
   id: string | number;
   name: string;
-  role: 'nurse' | 'caretaker' | 'therapist' | 'doctor';
+  role: 'nurse' | 'doctor'; // Updated to only allow nurse and doctor
   email: string;
   phone: string;
   photoUrl?: string;
   isOnDuty: boolean;
+  // New fields for backend compatibility
+  specialization?: string; // For doctors
+  nurseType?: 'fresh' | 'bscn'; // For nurses
   createdAt?: string;
   updatedAt?: string;
 }

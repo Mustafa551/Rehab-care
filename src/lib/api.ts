@@ -21,11 +21,14 @@ export interface LoginResponse {
 export interface StaffMember {
   id: number;
   name: string;
-  role: 'nurse' | 'caretaker' | 'therapist' | 'doctor';
+  role: 'nurse' | 'doctor'; // Updated to only allow nurse and doctor
   email: string;
   phone: string;
   isOnDuty: boolean;
   photoUrl?: string;
+  // New fields for frontend compatibility
+  specialization?: string; // For doctors
+  nurseType?: 'fresh' | 'bscn'; // For nurses
   createdAt: string;
   updatedAt: string;
 }
@@ -176,11 +179,13 @@ export const api = {
 
   createStaff: async (staffData: {
     name: string;
-    role: 'nurse' | 'caretaker' | 'therapist' | 'doctor';
+    role: 'nurse' | 'doctor';
     email: string;
     phone: string;
     isOnDuty?: boolean;
     photoUrl?: string;
+    specialization?: string; // For doctors
+    nurseType?: 'fresh' | 'bscn'; // For nurses
   }): Promise<StaffMember> => {
     return apiRequest<StaffMember>('/staff', {
       method: 'POST',
@@ -192,11 +197,13 @@ export const api = {
     staffId: number,
     staffData: Partial<{
       name: string;
-      role: 'nurse' | 'caretaker' | 'therapist' | 'doctor';
+      role: 'nurse' | 'doctor';
       email: string;
       phone: string;
       isOnDuty: boolean;
       photoUrl: string;
+      specialization: string; // For doctors
+      nurseType: 'fresh' | 'bscn'; // For nurses
     }>
   ): Promise<StaffMember> => {
     return apiRequest<StaffMember>(`/staff/${staffId}`, {

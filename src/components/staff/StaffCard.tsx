@@ -13,10 +13,34 @@ interface StaffCardProps {
 
 export function StaffCard({ staff, assignedPatients }: StaffCardProps) {
   const roleColors = {
-    nurse: 'bg-info/10 text-info',
-    caretaker: 'bg-success/10 text-success',
-    therapist: 'bg-warning/10 text-warning',
+    nurse: 'bg-green-100 text-green-700',
     doctor: 'bg-blue-100 text-blue-700',
+  };
+
+  // Get role-specific subtitle
+  const getRoleSubtitle = () => {
+    if (staff.role === 'doctor' && staff.specialization) {
+      const specializationNames = {
+        cardiologist: 'Cardiologist',
+        endocrinologist: 'Endocrinologist',
+        pulmonologist: 'Pulmonologist',
+        psychiatrist: 'Psychiatrist',
+        general: 'General Physician',
+        oncologist: 'Oncologist',
+        neurologist: 'Neurologist'
+      };
+      return specializationNames[staff.specialization as keyof typeof specializationNames] || staff.specialization;
+    }
+    
+    if (staff.role === 'nurse' && staff.nurseType) {
+      const nurseTypeNames = {
+        fresh: 'Fresh Nurse',
+        bscn: 'BScN Specialized Nurse'
+      };
+      return nurseTypeNames[staff.nurseType as keyof typeof nurseTypeNames] || staff.nurseType;
+    }
+    
+    return staff.role.charAt(0).toUpperCase() + staff.role.slice(1);
   };
 
   return (
@@ -29,9 +53,14 @@ export function StaffCard({ staff, assignedPatients }: StaffCardProps) {
             </div>
             <div>
               <h3 className="font-semibold text-foreground">{staff.name}</h3>
-              <Badge className={roleColors[staff.role]} variant="secondary">
-                {staff.role.charAt(0).toUpperCase() + staff.role.slice(1)}
-              </Badge>
+              <div className="flex flex-col gap-1">
+                <Badge className={roleColors[staff.role]} variant="secondary">
+                  {staff.role.charAt(0).toUpperCase() + staff.role.slice(1)}
+                </Badge>
+                <p className="text-xs text-muted-foreground">
+                  {getRoleSubtitle()}
+                </p>
+              </div>
             </div>
           </div>
           <Badge variant={staff.isOnDuty ? 'default' : 'outline'}>
