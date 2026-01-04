@@ -29,6 +29,10 @@ export interface Patient {
   condition?: string;
   assignedStaffId?: string | null;
   photoUrl?: string;
+  // Medical tracking fields
+  currentMedications?: string[];
+  lastAssessmentDate?: string;
+  dischargeStatus?: 'continue' | 'ready' | 'pending';
 }
 
 export interface StaffMember {

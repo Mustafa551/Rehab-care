@@ -1,7 +1,9 @@
 import { StaffMember, Patient } from '@/types';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Mail, Phone, Users } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Mail, Phone, Users, Eye } from 'lucide-react';
+import { DoctorDetailsDialog } from './DoctorDetailsDialog';
 
 interface StaffCardProps {
   staff: StaffMember;
@@ -66,9 +68,22 @@ export function StaffCard({ staff, assignedPatients }: StaffCardProps) {
               ))}
             </div>
             {staff.role === 'doctor' && (
-              <p className="text-xs text-muted-foreground mt-1">
-                Doctor assignments are permanent and do not rotate
-              </p>
+              <>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Doctor assignments are permanent and do not rotate
+                </p>
+                <div className="mt-3">
+                  <DoctorDetailsDialog 
+                    doctor={staff}
+                    trigger={
+                      <Button variant="outline" size="sm" className="w-full gap-2">
+                        <Eye className="h-4 w-4" />
+                        View Patient Details
+                      </Button>
+                    }
+                  />
+                </div>
+              </>
             )}
           </div>
         ) : (
@@ -82,6 +97,19 @@ export function StaffCard({ staff, assignedPatients }: StaffCardProps) {
                 0
               </Badge>
             </div>
+            {staff.role === 'doctor' && (
+              <div className="mt-3">
+                <DoctorDetailsDialog 
+                  doctor={staff}
+                  trigger={
+                    <Button variant="outline" size="sm" className="w-full gap-2">
+                      <Eye className="h-4 w-4" />
+                      Doctor Dashboard
+                    </Button>
+                  }
+                />
+              </div>
+            )}
           </div>
         )}
       </CardContent>
