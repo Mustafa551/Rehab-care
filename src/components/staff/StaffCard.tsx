@@ -100,7 +100,7 @@ export function StaffCard({ staff, assignedPatients }: StaffCardProps) {
             {staff.role === 'doctor' && (
               <>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Doctor assignments are permanent and do not rotate
+                  Doctors are permanently assigned to patients
                 </p>
                 <div className="mt-3">
                   <DoctorDetailsDialog 

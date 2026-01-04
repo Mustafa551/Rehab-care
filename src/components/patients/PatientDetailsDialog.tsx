@@ -31,11 +31,10 @@ interface PatientDetailsDialogProps {
 }
 
 export function PatientDetailsDialog({ patient, open, onOpenChange }: PatientDetailsDialogProps) {
-  const { getPatientAssignment, doctorNotes, rehabProgress } = useData();
+  const { doctorNotes, rehabProgress } = useData();
   
   if (!patient) return null;
 
-  const assignedStaff = getPatientAssignment(patient.id);
   const patientNotes = doctorNotes.filter(note => note.patientId === patient.id);
   const patientProgress = rehabProgress.filter(progress => progress.patientId === patient.id);
   

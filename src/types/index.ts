@@ -27,7 +27,6 @@ export interface Patient {
   roomNumber?: number;
   admissionDate?: string;
   condition?: string;
-  assignedStaffId?: string | null;
   photoUrl?: string;
   // Medical tracking fields
   currentMedications?: string[];
@@ -48,13 +47,6 @@ export interface StaffMember {
   nurseType?: 'fresh' | 'bscn'; // For nurses
   createdAt?: string;
   updatedAt?: string;
-}
-
-export interface StaffAssignment {
-  id: string;
-  staffId: string;
-  patientId: string;
-  date: string;
 }
 
 export interface MealSchedule {

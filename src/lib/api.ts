@@ -33,15 +33,6 @@ export interface StaffMember {
   updatedAt: string;
 }
 
-export interface StaffAssignment {
-  id: number;
-  staffId: number;
-  patientId: string;
-  date: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
 export interface Patient {
   id: number;
   name: string;
@@ -226,50 +217,6 @@ export const api = {
   deleteStaff: async (staffId: number) => {
     return apiRequest(`/staff/${staffId}`, {
       method: 'DELETE',
-    });
-  },
-
-  // Assignment endpoints
-  getAssignmentsByDate: async (date: string): Promise<StaffAssignment[]> => {
-    return apiRequest<StaffAssignment[]>(`/assignments?date=${date}`);
-  },
-
-  generateAssignments: async (date: string): Promise<StaffAssignment[]> => {
-    return apiRequest<StaffAssignment[]>('/assignments/generate', {
-      method: 'POST',
-      body: JSON.stringify({ date }),
-    });
-  },
-
-  initializeAssignments: async () => {
-    return apiRequest('/assignments/initialize', {
-      method: 'POST',
-    });
-  },
-
-  getAssignmentsByStaff: async (staffId: number, date?: string): Promise<StaffAssignment[]> => {
-    const endpoint = date 
-      ? `/assignments/staff/${staffId}?date=${date}`
-      : `/assignments/staff/${staffId}`;
-    return apiRequest<StaffAssignment[]>(endpoint);
-  },
-
-  getAssignmentsByPatient: async (patientId: string, date?: string): Promise<StaffAssignment[]> => {
-    const endpoint = date 
-      ? `/assignments/patient/${patientId}?date=${date}`
-      : `/assignments/patient/${patientId}`;
-    return apiRequest<StaffAssignment[]>(endpoint);
-  },
-
-  // Doctor assignment endpoints
-  getDoctorAssignments: async () => {
-    return apiRequest('/assignments/doctors');
-  },
-
-  assignDoctorToPatient: async (doctorId: number, patientId: string) => {
-    return apiRequest('/assignments/doctors/assign', {
-      method: 'POST',
-      body: JSON.stringify({ doctorId, patientId }),
     });
   },
 

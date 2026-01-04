@@ -10,7 +10,7 @@ import { Search, Users, Baby, Plus, UserPlus } from 'lucide-react';
 import { Patient } from '@/types';
 
 export default function Patients() {
-  const { patients, getPatientAssignment, getPatientDoctor } = useData();
+  const { patients, getPatientDoctor } = useData();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);

@@ -393,7 +393,7 @@ export function AddStaffDialog({ trigger }: AddStaffDialogProps) {
                         • Nurses can be Fresh or BScN Specialized
                       </p>
                       <p className="text-muted-foreground">
-                        • Staff will be available for patient assignments
+                        • Staff will be available for patient care
                       </p>
                     </div>
                   </div>

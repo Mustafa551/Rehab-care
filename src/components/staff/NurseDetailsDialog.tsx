@@ -83,7 +83,7 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
   const [activeTab, setActiveTab] = useState('patients');
   const [isUpdating, setIsUpdating] = useState(false);
   
-  // Get patients assigned to this nurse (for daily assignments)
+  // Get patients assigned to this nurse (doctors only have permanent assignments)
   const nursePatients = getStaffPatients(nurse.id.toString());
 
   // Mock data - in real app, this would come from API

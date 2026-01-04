@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, UserCog, Activity, TrendingUp, Calendar } from 'lucide-react';
 
 export default function Dashboard() {
-  const { patients, staffMembers, rehabProgress, mealSchedules, getPatientAssignment, getPatientDoctor } = useData();
+  const { patients, staffMembers, rehabProgress, mealSchedules, getPatientDoctor } = useData();
   
   // Prevent back navigation to login
   useNavigationGuard();

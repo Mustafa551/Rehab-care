@@ -1,16 +1,16 @@
-import { Patient, StaffMember, MealSchedule, DoctorNote, RehabProgress, StaffAssignment } from '@/types';
+import { Patient, StaffMember, MealSchedule, DoctorNote, RehabProgress } from '@/types';
 
 export const patients: Patient[] = [
-  { id: 'p1', name: 'John Anderson', age: 45, ageGroup: 'adult', roomNumber: 101, admissionDate: '2024-01-15', condition: 'Post-surgery rehabilitation', assignedStaffId: null, assignedDoctorId: null },
-  { id: 'p2', name: 'Maria Garcia', age: 62, ageGroup: 'adult', roomNumber: 102, admissionDate: '2024-02-01', condition: 'Stroke recovery', assignedStaffId: null, assignedDoctorId: null },
-  { id: 'p3', name: 'Tommy Wilson', age: 16, ageGroup: 'youth', roomNumber: 201, admissionDate: '2024-01-20', condition: 'Sports injury rehabilitation', assignedStaffId: null, assignedDoctorId: null },
-  { id: 'p4', name: 'Sarah Chen', age: 55, ageGroup: 'adult', roomNumber: 103, admissionDate: '2024-02-10', condition: 'Joint replacement recovery', assignedStaffId: null, assignedDoctorId: null },
-  { id: 'p5', name: 'Emma Thompson', age: 14, ageGroup: 'youth', roomNumber: 202, admissionDate: '2024-02-05', condition: 'Physical therapy', assignedStaffId: null, assignedDoctorId: null },
-  { id: 'p6', name: 'Robert Johnson', age: 70, ageGroup: 'adult', roomNumber: 104, admissionDate: '2024-01-28', condition: 'Cardiac rehabilitation', assignedStaffId: null, assignedDoctorId: null },
-  { id: 'p7', name: 'Lucas Martinez', age: 17, ageGroup: 'youth', roomNumber: 203, admissionDate: '2024-02-12', condition: 'Accident recovery', assignedStaffId: null, assignedDoctorId: null },
-  { id: 'p8', name: 'Patricia Brown', age: 48, ageGroup: 'adult', roomNumber: 105, admissionDate: '2024-02-08', condition: 'Neurological rehabilitation', assignedStaffId: null, assignedDoctorId: null },
-  { id: 'p9', name: 'James Lee', age: 15, ageGroup: 'youth', roomNumber: 204, admissionDate: '2024-02-14', condition: 'Orthopedic rehabilitation', assignedStaffId: null, assignedDoctorId: null },
-  { id: 'p10', name: 'Helen Davis', age: 58, ageGroup: 'adult', roomNumber: 106, admissionDate: '2024-02-03', condition: 'Pulmonary rehabilitation', assignedStaffId: null, assignedDoctorId: null },
+  { id: 'p1', name: 'John Anderson', age: 45, ageGroup: 'adult', roomNumber: 101, admissionDate: '2024-01-15', condition: 'Post-surgery rehabilitation', assignedDoctorId: null },
+  { id: 'p2', name: 'Maria Garcia', age: 62, ageGroup: 'adult', roomNumber: 102, admissionDate: '2024-02-01', condition: 'Stroke recovery', assignedDoctorId: null },
+  { id: 'p3', name: 'Tommy Wilson', age: 16, ageGroup: 'youth', roomNumber: 201, admissionDate: '2024-01-20', condition: 'Sports injury rehabilitation', assignedDoctorId: null },
+  { id: 'p4', name: 'Sarah Chen', age: 55, ageGroup: 'adult', roomNumber: 103, admissionDate: '2024-02-10', condition: 'Joint replacement recovery', assignedDoctorId: null },
+  { id: 'p5', name: 'Emma Thompson', age: 14, ageGroup: 'youth', roomNumber: 202, admissionDate: '2024-02-05', condition: 'Physical therapy', assignedDoctorId: null },
+  { id: 'p6', name: 'Robert Johnson', age: 70, ageGroup: 'adult', roomNumber: 104, admissionDate: '2024-01-28', condition: 'Cardiac rehabilitation', assignedDoctorId: null },
+  { id: 'p7', name: 'Lucas Martinez', age: 17, ageGroup: 'youth', roomNumber: 203, admissionDate: '2024-02-12', condition: 'Accident recovery', assignedDoctorId: null },
+  { id: 'p8', name: 'Patricia Brown', age: 48, ageGroup: 'adult', roomNumber: 105, admissionDate: '2024-02-08', condition: 'Neurological rehabilitation', assignedDoctorId: null },
+  { id: 'p9', name: 'James Lee', age: 15, ageGroup: 'youth', roomNumber: 204, admissionDate: '2024-02-14', condition: 'Orthopedic rehabilitation', assignedDoctorId: null },
+  { id: 'p10', name: 'Helen Davis', age: 58, ageGroup: 'adult', roomNumber: 106, admissionDate: '2024-02-03', condition: 'Pulmonary rehabilitation', assignedDoctorId: null },
 ];
 
 export const staffMembers: StaffMember[] = [
@@ -61,32 +61,3 @@ export const rehabProgress: RehabProgress[] = [
   { id: 'rp9', patientId: 'p9', date: '2024-02-14', milestone: 'Bone healing', progressPercentage: 80, notes: 'Ahead of schedule' },
   { id: 'rp10', patientId: 'p10', date: '2024-02-15', milestone: 'Breathing exercises', progressPercentage: 40, notes: 'Gradual improvement' },
 ];
-
-// Function to generate daily staff rotation (excludes doctors)
-export function generateDailyAssignments(date: string, staffMembers?: StaffMember[]): StaffAssignment[] {
-  const dateObj = new Date(date);
-  const dayOfYear = Math.floor((dateObj.getTime() - new Date(dateObj.getFullYear(), 0, 0).getTime()) / (1000 * 60 * 60 * 24));
-  
-  const assignments: StaffAssignment[] = [];
-  const availableStaff = staffMembers || [];
-  
-  // Filter out doctors - they don't rotate
-  const rotatingStaff = availableStaff.filter(staff => staff.role !== 'doctor');
-  
-  if (!rotatingStaff || rotatingStaff.length === 0) {
-    return assignments;
-  }
-  
-  patients.forEach((patient, index) => {
-    // Rotate only non-doctor staff based on day of year
-    const staffIndex = (index + dayOfYear) % rotatingStaff.length;
-    assignments.push({
-      id: `a-${patient.id}-${date}`,
-      staffId: rotatingStaff[staffIndex].id.toString(),
-      patientId: patient.id,
-      date: date,
-    });
-  });
-  
-  return assignments;
-}

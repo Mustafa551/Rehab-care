@@ -16,19 +16,14 @@ export default function Staff() {
   const { 
     staffMembers,
     patients,
-    assignments,
-    currentDate, 
     getStaffPatients,
     getPatientDoctor,
     isLoadingStaff,
     isLoadingPatients, 
-    isLoadingAssignments,
     staffError,
     patientError,
-    assignmentError, 
     refreshStaff,
     refreshPatients,
-    refreshAssignments
   } = useData();
   const [searchTerm, setSearchTerm] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -47,16 +42,7 @@ export default function Staff() {
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      await Promise.all([refreshStaff(), refreshPatients(), refreshAssignments()]);
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
-
-  const handleRegenerateAssignments = async () => {
-    setIsRefreshing(true);
-    try {
-      await refreshAssignments();
+      await Promise.all([refreshStaff(), refreshPatients()]);
     } finally {
       setIsRefreshing(false);
     }
@@ -67,7 +53,7 @@ export default function Staff() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Staff & Patient Management</h1>
-          <p className="text-muted-foreground">View staff assignments, patient assignments, and rotation schedule</p>
+          <p className="text-muted-foreground">Manage staff members and patients</p>
         </div>
         <div className="flex items-center gap-3">
           <div className="relative w-full sm:w-72">
@@ -87,41 +73,32 @@ export default function Staff() {
           >
             <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
           </Button>
-          <Button
-            variant="default"
-            onClick={handleRegenerateAssignments}
-            disabled={isRefreshing || isLoadingAssignments}
-            className="gap-2"
-          >
-            <UserCheck className="h-4 w-4" />
-            Assign Today
-          </Button>
           <AddStaffDialog />
           <AddPatientDialog />
         </div>
       </div>
 
-      {/* Current Date and Rotation Info */}
+      {/* Staff and Patient Overview */}
       <Card variant="flat" className="bg-gradient-to-r from-primary/5 to-secondary/5 border-primary/20">
         <CardContent className="py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Calendar className="h-5 w-5 text-primary" />
+              <Users className="h-5 w-5 text-primary" />
               <div>
                 <h3 className="font-semibold text-foreground">
-                  Current Assignment Date: {format(new Date(currentDate), 'EEEE, MMMM d, yyyy')}
+                  Staff & Patient Overview
                 </h3>
                 <p className="text-sm text-muted-foreground">
-                  Non-doctor staff assignments rotate daily • Doctor assignments are permanent
+                  Manage your healthcare team and patient records
                 </p>
               </div>
             </div>
             <div className="text-right">
               <p className="text-sm font-medium text-foreground">
-                Assignments: {assignments.length} total
+                {patients.length} patients • {staffMembers.filter(s => s.isOnDuty).length} active staff
               </p>
               <p className="text-xs text-muted-foreground">
-                {patients.length} patients • {staffMembers.filter(s => s.isOnDuty).length} active staff
+                {staffMembers.filter(s => s.role === 'doctor').length} doctors • {staffMembers.filter(s => s.role === 'nurse').length} nurses
               </p>
             </div>
           </div>
@@ -165,68 +142,50 @@ export default function Staff() {
         </Alert>
       )}
 
-      {assignmentError && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            Assignment Error: {assignmentError}
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="ml-2" 
-              onClick={handleRefresh}
-              disabled={isRefreshing}
-            >
-              Try Again
-            </Button>
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {/* Rotation Info Card */}
+      {/* Staff Management Info */}
       <Card variant="gradient">
         <CardContent className="py-4">
           <div className="flex items-center gap-4">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/20 text-primary">
-              <RefreshCw className="h-6 w-6" />
+              <UserCheck className="h-6 w-6" />
             </div>
             <div className="flex-1">
-              <h3 className="font-semibold text-foreground">Daily Staff Rotation</h3>
+              <h3 className="font-semibold text-foreground">Staff Management</h3>
               <p className="text-sm text-muted-foreground">
-                Staff assignments rotate automatically each day. Current rotation date:
+                Manage your healthcare team members and their patient assignments
               </p>
             </div>
             <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-background/50 border border-border/50">
-              <Calendar className="h-4 w-4 text-primary" />
+              <Users className="h-4 w-4 text-primary" />
               <span className="font-medium text-foreground">
-                {format(new Date(currentDate), 'MMM d, yyyy')}
+                {staffMembers.length} Total Staff
               </span>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* How Rotation Works */}
+      {/* How Staff Management Works */}
       <Card variant="default">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
             <Info className="h-4 w-4 text-info" />
-            How Staff Rotation Works
+            Staff Management Overview
           </CardTitle>
         </CardHeader>
         <CardContent>
           <ul className="text-sm text-muted-foreground space-y-2">
             <li className="flex items-start gap-2">
               <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-medium">1</span>
-              Each patient is assigned one rotating staff member (nurse, caretaker, therapist) per day
+              Doctors are permanently assigned to patients during registration
             </li>
             <li className="flex items-start gap-2">
               <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-medium">2</span>
-              Doctors have permanent assignments and do not rotate daily
+              Nurses can view and update patient vital signs and conditions
             </li>
             <li className="flex items-start gap-2">
               <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-medium">3</span>
-              Use the "Simulate Next Day" button in the header to rotate non-doctor staff assignments
+              Use staff cards to view detailed information and patient lists
             </li>
           </ul>
         </CardContent>
@@ -248,23 +207,17 @@ export default function Staff() {
         {/* Staff Tab */}
         <TabsContent value="staff" className="mt-6">
           {/* Loading State */}
-          {(isLoadingStaff || isLoadingAssignments) && (
+          {isLoadingStaff && (
             <div className="flex items-center justify-center py-12">
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Loader2 className="h-5 w-5 animate-spin" />
-                <span>
-                  {isLoadingStaff && isLoadingAssignments 
-                    ? 'Loading staff and assignments...'
-                    : isLoadingStaff 
-                    ? 'Loading staff members...'
-                    : 'Loading assignments...'}
-                </span>
+                <span>Loading staff members...</span>
               </div>
             </div>
           )}
 
           {/* Empty State */}
-          {!isLoadingStaff && !isLoadingAssignments && !staffError && staffMembers.length === 0 && (
+          {!isLoadingStaff && !staffError && staffMembers.length === 0 && (
             <Card>
               <CardContent className="py-12 text-center">
                 <div className="space-y-4">
@@ -286,7 +239,7 @@ export default function Staff() {
           )}
 
           {/* Staff Grid */}
-          {!isLoadingStaff && !isLoadingAssignments && filteredStaff.length > 0 && (
+          {!isLoadingStaff && filteredStaff.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredStaff.map((staff, index) => (
                 <div key={staff.id} style={{ animationDelay: `${index * 50}ms` }}>
@@ -300,7 +253,7 @@ export default function Staff() {
           )}
 
           {/* No Search Results */}
-          {!isLoadingStaff && !isLoadingAssignments && staffMembers.length > 0 && filteredStaff.length === 0 && (
+          {!isLoadingStaff && staffMembers.length > 0 && filteredStaff.length === 0 && (
             <Card>
               <CardContent className="py-12 text-center">
                 <div className="space-y-4">
