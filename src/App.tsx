@@ -14,8 +14,6 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Patients from "./pages/Patients";
 import Staff from "./pages/Staff";
-import MealSchedule from "./pages/MealSchedule";
-import DoctorNotes from "./pages/DoctorNotes";
 import Progress from "./pages/Progress";
 import NotFound from "./pages/NotFound";
 
@@ -65,26 +63,6 @@ const App = () => (
                   <ProtectedRoute>
                     <AppLayout>
                       <Staff />
-                    </AppLayout>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/meals"
-                element={
-                  <ProtectedRoute>
-                    <AppLayout>
-                      <MealSchedule />
-                    </AppLayout>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/notes"
-                element={
-                  <ProtectedRoute>
-                    <AppLayout>
-                      <DoctorNotes />
                     </AppLayout>
                   </ProtectedRoute>
                 }

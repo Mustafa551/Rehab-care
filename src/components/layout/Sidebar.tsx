@@ -3,8 +3,6 @@ import {
   LayoutDashboard, 
   Users, 
   UserCog, 
-  Calendar, 
-  ClipboardList, 
   TrendingUp,
   LogOut,
   Heart
@@ -17,8 +15,6 @@ const navItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
   { icon: Users, label: 'Patients', path: '/patients' },
   { icon: UserCog, label: 'Staff', path: '/staff' },
-  { icon: Calendar, label: 'Meal Schedule', path: '/meals' },
-  { icon: ClipboardList, label: 'Doctor Notes', path: '/notes' },
   { icon: TrendingUp, label: 'Progress', path: '/progress' },
 ];
 
