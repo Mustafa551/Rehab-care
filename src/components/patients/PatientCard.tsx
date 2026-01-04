@@ -1,8 +1,11 @@
 import { Patient, StaffMember } from '@/types';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { User, MapPin, Calendar, Stethoscope } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { User, MapPin, Calendar, Stethoscope, Receipt } from 'lucide-react';
 import { format } from 'date-fns';
+import { useData } from '@/contexts/DataContext';
+import { DischargeDialog } from './DischargeDialog';
 
 interface PatientCardProps {
   patient: Patient;
@@ -11,11 +14,22 @@ interface PatientCardProps {
 }
 
 export function PatientCard({ patient, assignedDoctor, onClick }: PatientCardProps) {
+  const { isPatientReadyForDischarge } = useData();
+  const isReadyForDischarge = isPatientReadyForDischarge(patient.id.toString());
+
+  const handleCardClick = (e: React.MouseEvent) => {
+    // Don't trigger card click if clicking on discharge button
+    if ((e.target as HTMLElement).closest('button')) {
+      return;
+    }
+    onClick?.();
+  };
+
   return (
     <Card 
       variant="interactive" 
       className="animate-fade-in cursor-pointer hover:shadow-lg transition-all duration-200"
-      onClick={onClick}
+      onClick={handleCardClick}
     >
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
@@ -60,6 +74,27 @@ export function PatientCard({ patient, assignedDoctor, onClick }: PatientCardPro
               <span className="text-sm text-muted-foreground">Doctor:</span>
               <span className="text-sm font-medium text-foreground">{assignedDoctor.name}</span>
             </div>
+          </div>
+        )}
+
+        {/* Discharge Button */}
+        {isReadyForDischarge && (
+          <div className="pt-3 border-t border-border">
+            <DischargeDialog
+              patient={patient}
+              assignedDoctor={assignedDoctor}
+              trigger={
+                <Button 
+                  variant="default" 
+                  size="sm" 
+                  className="w-full gap-2 bg-green-600 hover:bg-green-700"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Receipt className="h-4 w-4" />
+                  Ready for Discharge
+                </Button>
+              }
+            />
           </div>
         )}
       </CardContent>

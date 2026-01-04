@@ -31,6 +31,7 @@ interface DataContextType {
   rehabProgress: RehabProgress[];
   assignments: StaffAssignment[];
   nurseReports: Record<string, PatientConditionReport[]>;
+  patientConditions: Record<string, any>; // Store patient conditions from doctors
   currentDate: string;
   isLoadingStaff: boolean;
   isLoadingPatients: boolean;
@@ -58,6 +59,11 @@ interface DataContextType {
   updateNurseReport: (reportId: string, patientId: string, updates: Partial<PatientConditionReport>) => void;
   getPatientNurseReports: (patientId: string) => PatientConditionReport[];
   getUnreviewedReports: (patientId: string) => PatientConditionReport[];
+  // Patient condition actions
+  updatePatientCondition: (patientId: string, condition: any) => void;
+  getPatientCondition: (patientId: string) => any;
+  isPatientReadyForDischarge: (patientId: string) => boolean;
+  dischargePatient: (patientId: string) => Promise<void>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -70,6 +76,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [rehabProgress, setRehabProgress] = useState<RehabProgress[]>(initialProgress);
   const [assignments, setAssignments] = useState<StaffAssignment[]>([]);
   const [nurseReports, setNurseReports] = useState<Record<string, PatientConditionReport[]>>({});
+  const [patientConditions, setPatientConditions] = useState<Record<string, any>>({});
   const [currentDate, setCurrentDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [isLoadingStaff, setIsLoadingStaff] = useState(true);
   const [isLoadingPatients, setIsLoadingPatients] = useState(true);
@@ -233,6 +240,35 @@ export function DataProvider({ children }: { children: ReactNode }) {
     };
     
     setNurseReports(mockReports);
+
+    // Add some mock patient conditions to demonstrate discharge functionality
+    const mockConditions: Record<string, any> = {
+      '1': {
+        date: new Date().toISOString().split('T')[0],
+        condition: 'Patient has shown significant improvement. Vital signs stable, pain managed effectively.',
+        notes: 'Patient is ready for discharge. Continue prescribed medications at home.',
+        medications: [
+          {
+            id: '1',
+            name: 'Paracetamol',
+            dosage: '500mg',
+            frequency: '2x daily',
+            startDate: new Date().toISOString().split('T')[0],
+            notes: 'Take with food'
+          }
+        ],
+        vitals: {
+          bloodPressure: '120/80',
+          heartRate: '72',
+          temperature: '98.6',
+          oxygenSaturation: '98'
+        },
+        dischargeRecommendation: 'discharge',
+        dischargeNotes: 'Patient is stable and ready for home care. Follow up in 1 week.'
+      }
+    };
+
+    setPatientConditions(mockConditions);
   };
 
   const addPatient = async (patientData: Omit<Patient, 'id' | 'createdAt' | 'updatedAt'>) => {
@@ -409,6 +445,32 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return getPatientNurseReports(patientId).filter(report => !report.reviewedByDoctor);
   };
 
+  // Patient condition functions
+  const updatePatientCondition = (patientId: string, condition: any) => {
+    setPatientConditions(prev => ({
+      ...prev,
+      [patientId]: condition
+    }));
+  };
+
+  const getPatientCondition = (patientId: string) => {
+    return patientConditions[patientId] || null;
+  };
+
+  const isPatientReadyForDischarge = (patientId: string): boolean => {
+    const condition = patientConditions[patientId];
+    return condition?.dischargeRecommendation === 'discharge';
+  };
+
+  const dischargePatient = async (patientId: string) => {
+    // Update patient status to discharged
+    setPatients(prev => prev.map(patient => 
+      patient.id.toString() === patientId 
+        ? { ...patient, status: 'discharged' as const }
+        : patient
+    ));
+  };
+
   return (
     <DataContext.Provider value={{
       patients,
@@ -442,6 +504,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
       updateNurseReport,
       getPatientNurseReports,
       getUnreviewedReports,
+      patientConditions,
+      updatePatientCondition,
+      getPatientCondition,
+      isPatientReadyForDischarge,
+      dischargePatient,
     }}>
       {children}
     </DataContext.Provider>

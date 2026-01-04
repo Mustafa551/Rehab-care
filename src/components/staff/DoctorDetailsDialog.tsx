@@ -78,7 +78,15 @@ interface PatientConditionReport {
 }
 
 export function DoctorDetailsDialog({ doctor, trigger }: DoctorDetailsDialogProps) {
-  const { patients, getStaffPatients, getPatientNurseReports, getUnreviewedReports, updateNurseReport } = useData();
+  const { 
+    patients, 
+    getStaffPatients, 
+    getPatientNurseReports, 
+    getUnreviewedReports, 
+    updateNurseReport,
+    updatePatientCondition,
+    getPatientCondition
+  } = useData();
   const [open, setOpen] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [activeTab, setActiveTab] = useState('patients');
@@ -89,8 +97,6 @@ export function DoctorDetailsDialog({ doctor, trigger }: DoctorDetailsDialogProp
     patient.assignedDoctorId === doctor.id
   );
 
-  // Mock patient condition data - in real app, this would come from API
-  const [patientConditions, setPatientConditions] = useState<Record<string, PatientConditionUpdate>>({});
   const [doctorResponses, setDoctorResponses] = useState<Record<string, string>>({});
   
   const [conditionForm, setConditionForm] = useState<PatientConditionUpdate>({
@@ -108,7 +114,7 @@ export function DoctorDetailsDialog({ doctor, trigger }: DoctorDetailsDialogProp
     setActiveTab('condition');
     
     // Load existing condition data or initialize new
-    const existingCondition = patientConditions[patient.id.toString()];
+    const existingCondition = getPatientCondition(patient.id.toString());
     if (existingCondition) {
       setConditionForm(existingCondition);
     } else {
@@ -181,16 +187,13 @@ export function DoctorDetailsDialog({ doctor, trigger }: DoctorDetailsDialogProp
     
     setIsUpdating(true);
     try {
-      // In real app, this would be an API call
-      setPatientConditions(prev => ({
-        ...prev,
-        [selectedPatient.id.toString()]: conditionForm
-      }));
+      // Update patient condition in shared context
+      updatePatientCondition(selectedPatient.id.toString(), conditionForm);
       
       toast.success('Patient condition updated successfully');
       
       if (conditionForm.dischargeRecommendation === 'discharge') {
-        toast.info('Discharge recommendation noted. Please coordinate with administration.');
+        toast.info('Discharge recommendation noted. Patient is now ready for discharge.');
       }
     } catch (error) {
       toast.error('Failed to update patient condition');
@@ -200,7 +203,7 @@ export function DoctorDetailsDialog({ doctor, trigger }: DoctorDetailsDialogProp
   };
 
   const getConditionStatus = (patient: Patient) => {
-    const condition = patientConditions[patient.id.toString()];
+    const condition = getPatientCondition(patient.id.toString());
     if (!condition) return 'pending';
     
     const daysSinceUpdate = Math.floor(
@@ -328,7 +331,7 @@ export function DoctorDetailsDialog({ doctor, trigger }: DoctorDetailsDialogProp
                           </span>
                         </div>
 
-                        {patientConditions[patient.id.toString()]?.dischargeRecommendation === 'discharge' && (
+                        {getPatientCondition(patient.id.toString())?.dischargeRecommendation === 'discharge' && (
                           <div className="flex items-center gap-2 text-sm text-green-600">
                             <CheckCircle className="h-4 w-4" />
                             <span className="font-medium">Recommended for discharge</span>
@@ -766,7 +769,7 @@ export function DoctorDetailsDialog({ doctor, trigger }: DoctorDetailsDialogProp
                 </CardHeader>
                 <CardContent>
                   <div className="text-3xl font-bold">
-                    {Object.values(patientConditions).filter(c => c.dischargeRecommendation === 'discharge').length}
+                    {doctorPatients.filter(p => getPatientCondition(p.id.toString())?.dischargeRecommendation === 'discharge').length}
                   </div>
                   <p className="text-muted-foreground">Patients recommended</p>
                 </CardContent>
@@ -813,15 +816,20 @@ export function DoctorDetailsDialog({ doctor, trigger }: DoctorDetailsDialogProp
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {Object.entries(patientConditions)
-                      .sort(([,a], [,b]) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                    {doctorPatients
+                      .filter(patient => getPatientCondition(patient.id.toString()))
+                      .sort((a, b) => {
+                        const conditionA = getPatientCondition(a.id.toString());
+                        const conditionB = getPatientCondition(b.id.toString());
+                        return new Date(conditionB.date).getTime() - new Date(conditionA.date).getTime();
+                      })
                       .slice(0, 5)
-                      .map(([patientId, condition]) => {
-                        const patient = doctorPatients.find(p => p.id.toString() === patientId);
-                        if (!patient) return null;
+                      .map((patient) => {
+                        const condition = getPatientCondition(patient.id.toString());
+                        if (!condition) return null;
                         
                         return (
-                          <div key={patientId} className="flex items-center gap-3 p-3 rounded-lg border">
+                          <div key={patient.id} className="flex items-center gap-3 p-3 rounded-lg border">
                             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold text-sm">
                               {patient.name.split(' ').map(n => n[0]).join('')}
                             </div>
@@ -838,7 +846,7 @@ export function DoctorDetailsDialog({ doctor, trigger }: DoctorDetailsDialogProp
                         );
                       })}
                     
-                    {Object.keys(patientConditions).length === 0 && (
+                    {doctorPatients.filter(p => getPatientCondition(p.id.toString())).length === 0 && (
                       <p className="text-muted-foreground text-center py-8">
                         No recent activity. Start by assessing your patients.
                       </p>
