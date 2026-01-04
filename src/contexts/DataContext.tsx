@@ -42,6 +42,7 @@ interface DataContextType {
   
   // Actions
   addPatient: (patient: Omit<Patient, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  loadPatients: () => Promise<void>;
   addStaffMember: (staff: Omit<StaffMember, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
   updateMealSchedule: (schedule: MealSchedule) => void;
   addDoctorNote: (note: Omit<DoctorNote, 'id'>) => void;
@@ -242,30 +243,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setNurseReports(mockReports);
 
     // Add some mock patient conditions to demonstrate discharge functionality
+    // Removed mock discharge conditions to prevent new patients from showing discharge button
     const mockConditions: Record<string, any> = {
-      '1': {
-        date: new Date().toISOString().split('T')[0],
-        condition: 'Patient has shown significant improvement. Vital signs stable, pain managed effectively.',
-        notes: 'Patient is ready for discharge. Continue prescribed medications at home.',
-        medications: [
-          {
-            id: '1',
-            name: 'Paracetamol',
-            dosage: '500mg',
-            frequency: '2x daily',
-            startDate: new Date().toISOString().split('T')[0],
-            notes: 'Take with food'
-          }
-        ],
-        vitals: {
-          bloodPressure: '120/80',
-          heartRate: '72',
-          temperature: '98.6',
-          oxygenSaturation: '98'
-        },
-        dischargeRecommendation: 'discharge',
-        dischargeNotes: 'Patient is stable and ready for home care. Follow up in 1 week.'
-      }
+      // No mock conditions - discharge status should only be set by doctors
     };
 
     setPatientConditions(mockConditions);
@@ -459,6 +439,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const isPatientReadyForDischarge = (patientId: string): boolean => {
     const condition = patientConditions[patientId];
+    
+    // Only show discharge button if doctor has explicitly set discharge recommendation
     return condition?.dischargeRecommendation === 'discharge';
   };
 
@@ -503,6 +485,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       patientError,
       assignmentError,
       addPatient,
+      loadPatients,
       addStaffMember,
       updateMealSchedule,
       addDoctorNote,

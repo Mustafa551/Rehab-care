@@ -72,7 +72,7 @@ interface AddPatientDialogProps {
 }
 
 export function AddPatientDialog({ trigger }: AddPatientDialogProps) {
-  const { patients, addPatient, getDoctors } = useData();
+  const { patients, addPatient, getDoctors, loadPatients } = useData();
   const [open, setOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
@@ -290,6 +290,11 @@ export function AddPatientDialog({ trigger }: AddPatientDialogProps) {
 
       // Use API directly instead of context
       await api.createPatient(newPatient);
+      
+      // Refresh the patient list to show the new patient immediately
+      if (loadPatients) {
+        await loadPatients();
+      }
       
       toast.success('Patient registered successfully with comprehensive details!');
       
