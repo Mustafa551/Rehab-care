@@ -379,65 +379,60 @@ export function DoctorDetailsDialog({ doctor, trigger }: DoctorDetailsDialogProp
                       </CardContent>
                     </Card>
 
-                    {/* Vital Signs */}
+                    {/* Vital Signs - Read Only for Doctors */}
                     <Card>
                       <CardHeader>
                         <CardTitle className="flex items-center gap-2">
                           <Activity className="h-5 w-5" />
-                          Vital Signs
+                          Latest Vital Signs (View Only)
                         </CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-4">
+                        <Alert>
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertDescription>
+                            Vital signs are recorded by nurses. You can view the latest readings here.
+                          </AlertDescription>
+                        </Alert>
+                        
                         <div className="grid grid-cols-2 gap-4">
                           <div className="space-y-2">
-                            <Label htmlFor="bp">Blood Pressure</Label>
+                            <Label>Blood Pressure</Label>
                             <Input
-                              id="bp"
-                              value={conditionForm.vitals?.bloodPressure || ''}
-                              onChange={(e) => setConditionForm(prev => ({
-                                ...prev,
-                                vitals: { ...prev.vitals, bloodPressure: e.target.value }
-                              }))}
-                              placeholder="120/80"
+                              value={conditionForm.vitals?.bloodPressure || 'Not recorded'}
+                              disabled
+                              className="bg-muted"
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label htmlFor="hr">Heart Rate</Label>
+                            <Label>Heart Rate</Label>
                             <Input
-                              id="hr"
-                              value={conditionForm.vitals?.heartRate || ''}
-                              onChange={(e) => setConditionForm(prev => ({
-                                ...prev,
-                                vitals: { ...prev.vitals, heartRate: e.target.value }
-                              }))}
-                              placeholder="72 bpm"
+                              value={conditionForm.vitals?.heartRate || 'Not recorded'}
+                              disabled
+                              className="bg-muted"
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label htmlFor="temp">Temperature</Label>
+                            <Label>Temperature</Label>
                             <Input
-                              id="temp"
-                              value={conditionForm.vitals?.temperature || ''}
-                              onChange={(e) => setConditionForm(prev => ({
-                                ...prev,
-                                vitals: { ...prev.vitals, temperature: e.target.value }
-                              }))}
-                              placeholder="98.6°F"
+                              value={conditionForm.vitals?.temperature || 'Not recorded'}
+                              disabled
+                              className="bg-muted"
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label htmlFor="o2">Oxygen Saturation</Label>
+                            <Label>Oxygen Saturation</Label>
                             <Input
-                              id="o2"
-                              value={conditionForm.vitals?.oxygenSaturation || ''}
-                              onChange={(e) => setConditionForm(prev => ({
-                                ...prev,
-                                vitals: { ...prev.vitals, oxygenSaturation: e.target.value }
-                              }))}
-                              placeholder="98%"
+                              value={conditionForm.vitals?.oxygenSaturation || 'Not recorded'}
+                              disabled
+                              className="bg-muted"
                             />
                           </div>
                         </div>
+                        
+                        <p className="text-xs text-muted-foreground">
+                          Last updated by nursing staff. Contact nurses for current vital signs.
+                        </p>
                       </CardContent>
                     </Card>
                   </div>

@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Mail, Phone, Users, Eye } from 'lucide-react';
 import { DoctorDetailsDialog } from './DoctorDetailsDialog';
+import { NurseDetailsDialog } from './NurseDetailsDialog';
 
 interface StaffCardProps {
   staff: StaffMember;
@@ -85,6 +86,19 @@ export function StaffCard({ staff, assignedPatients }: StaffCardProps) {
                 </div>
               </>
             )}
+            {staff.role === 'nurse' && (
+              <div className="mt-3">
+                <NurseDetailsDialog 
+                  nurse={staff}
+                  trigger={
+                    <Button variant="outline" size="sm" className="w-full gap-2">
+                      <Eye className="h-4 w-4" />
+                      Nurse Dashboard
+                    </Button>
+                  }
+                />
+              </div>
+            )}
           </div>
         ) : (
           <div className="pt-3 border-t border-border">
@@ -105,6 +119,19 @@ export function StaffCard({ staff, assignedPatients }: StaffCardProps) {
                     <Button variant="outline" size="sm" className="w-full gap-2">
                       <Eye className="h-4 w-4" />
                       Doctor Dashboard
+                    </Button>
+                  }
+                />
+              </div>
+            )}
+            {staff.role === 'nurse' && (
+              <div className="mt-3">
+                <NurseDetailsDialog 
+                  nurse={staff}
+                  trigger={
+                    <Button variant="outline" size="sm" className="w-full gap-2">
+                      <Eye className="h-4 w-4" />
+                      Nurse Dashboard
                     </Button>
                   }
                 />
