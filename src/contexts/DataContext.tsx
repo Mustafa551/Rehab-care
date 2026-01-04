@@ -6,7 +6,6 @@ import {
   rehabProgress as initialProgress
 } from '@/data/mockData';
 import { api, ApiError } from '@/lib/api';
-import { format } from 'date-fns';
 
 interface PatientConditionReport {
   id: string;
@@ -123,6 +122,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
         roomNumber: Math.floor(Math.random() * 100) + 100, // Temporary random room number
       }));
       
+      console.log('Loaded patients:', formattedPatients.map(p => ({ 
+        name: p.name, 
+        assignedNurses: p.assignedNurses,
+        assignedDoctorId: p.assignedDoctorId 
+      })));
+      
       setPatients(formattedPatients);
     } catch (error) {
       console.error('Failed to load patients:', error);
@@ -190,6 +195,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const addPatient = async (patientData: Omit<Patient, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
       setPatientError(null);
+      console.log('Creating patient with data:', {
+        name: patientData.name,
+        assignedDoctorId: patientData.assignedDoctorId,
+        assignedNurses: patientData.assignedNurses,
+      });
+      
       const newPatient = await api.createPatient({
         name: patientData.name,
         email: patientData.email || '',
@@ -198,6 +209,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
         medicalCondition: patientData.medicalCondition || patientData.condition || '',
         assignedDoctorId: patientData.assignedDoctorId ? Number(patientData.assignedDoctorId) : undefined,
         status: patientData.status || 'active',
+        // Include all the new comprehensive registration fields
+        age: patientData.age,
+        gender: patientData.gender,
+        address: patientData.address,
+        emergencyContact: patientData.emergencyContact,
+        diseases: patientData.diseases,
+        assignedNurses: patientData.assignedNurses,
+        initialDeposit: patientData.initialDeposit,
+        roomType: patientData.roomType,
+        admissionDate: patientData.admissionDate,
+        currentMedications: patientData.currentMedications,
+        lastAssessmentDate: patientData.lastAssessmentDate,
+        dischargeStatus: patientData.dischargeStatus,
       });
       
       // Convert to frontend format
@@ -265,8 +289,23 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (staff?.role === 'doctor') {
       // For doctors, get patients with permanent doctor assignments
       return patients.filter(p => p.assignedDoctorId?.toString() === staffId.toString());
+    } else if (staff?.role === 'nurse') {
+      // For nurses, get patients that have this nurse in their assignedNurses array
+      const nursePatients = patients.filter(p => {
+        console.log(`Checking patient ${p.name}:`, {
+          assignedNurses: p.assignedNurses,
+          nurseId: staffId.toString(),
+          hasNurses: p.assignedNurses && Array.isArray(p.assignedNurses),
+          includesNurse: p.assignedNurses && Array.isArray(p.assignedNurses) && p.assignedNurses.includes(staffId.toString())
+        });
+        return p.assignedNurses && 
+               Array.isArray(p.assignedNurses) && 
+               p.assignedNurses.includes(staffId.toString());
+      });
+      console.log(`Nurse ${staffId} has ${nursePatients.length} patients:`, nursePatients.map(p => p.name));
+      return nursePatients;
     } else {
-      // For nurses, return empty array since we removed assignments
+      // For other staff types, return empty array
       return [];
     }
   };
