@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
 export interface ApiResponse<T = any> {
   success?: boolean;
@@ -162,15 +162,26 @@ export const api = {
   },
 
   // Staff endpoints
-  getAllStaff: async (filters?: { role?: string; onDuty?: boolean }): Promise<StaffMember[]> => {
+  getAllStaff: async (filters?: { role?: string; onDuty?: boolean; diseases?: string[] }): Promise<StaffMember[]> => {
     const params = new URLSearchParams();
     if (filters?.role) params.append('role', filters.role);
     if (filters?.onDuty !== undefined) params.append('onDuty', filters.onDuty.toString());
+    if (filters?.diseases && filters.diseases.length > 0) {
+      params.append('diseases', filters.diseases.join(','));
+    }
     
     const queryString = params.toString();
     const endpoint = queryString ? `/staff?${queryString}` : '/staff';
     
     return apiRequest<StaffMember[]>(endpoint);
+  },
+
+  getDoctorsByDiseases: async (diseases: string[]): Promise<StaffMember[]> => {
+    return apiRequest<StaffMember[]>(`/staff?diseases=${diseases.join(',')}`);
+  },
+
+  getNurses: async (): Promise<StaffMember[]> => {
+    return apiRequest<StaffMember[]>('/staff?role=nurse');
   },
 
   getStaffById: async (staffId: number): Promise<StaffMember> => {
@@ -286,6 +297,20 @@ export const api = {
     medicalCondition: string;
     assignedDoctorId?: number;
     status?: 'active' | 'inactive' | 'discharged';
+    // New comprehensive registration fields
+    age?: number;
+    gender?: 'male' | 'female' | 'other';
+    address?: string;
+    emergencyContact?: string;
+    diseases?: string[];
+    assignedNurses?: string[];
+    initialDeposit?: number;
+    roomType?: 'general' | 'semi-private' | 'private';
+    roomNumber?: number;
+    admissionDate?: string;
+    currentMedications?: string[];
+    lastAssessmentDate?: string;
+    dischargeStatus?: 'continue' | 'ready' | 'pending';
   }): Promise<Patient> => {
     return apiRequest<Patient>('/patients', {
       method: 'POST',

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -33,11 +33,12 @@ import {
   ArrowRight,
   ArrowLeft
 } from 'lucide-react';
-import { AgeGroup, Gender, RoomType, Doctor, Nurse, Disease } from '@/types';
+import { AgeGroup, Gender, RoomType } from '@/types';
 import { toast } from 'sonner';
+import { api } from '@/lib/api';
 
-// Mock data for comprehensive registration
-const DISEASES: Disease[] = [
+// Disease definitions
+const DISEASES = [
   { id: 'fever', name: 'Fever' },
   { id: 'diabetes', name: 'Diabetes' },
   { id: 'blood-pressure', name: 'Blood Pressure' },
@@ -52,24 +53,19 @@ const DISEASES: Disease[] = [
   { id: 'liver-disease', name: 'Liver Disease' }
 ];
 
-const DOCTORS: Doctor[] = [
-  { id: 1, name: 'Dr. Ahmed Khan', specialization: 'Cardiologist', diseases: ['heart-disease', 'blood-pressure'] },
-  { id: 2, name: 'Dr. Fatima Ali', specialization: 'Endocrinologist', diseases: ['diabetes', 'kidney-disease'] },
-  { id: 3, name: 'Dr. Hassan Sheikh', specialization: 'Pulmonologist', diseases: ['asthma', 'fever'] },
-  { id: 4, name: 'Dr. Ayesha Malik', specialization: 'Psychiatrist', diseases: ['depression', 'anxiety'] },
-  { id: 5, name: 'Dr. Omar Siddique', specialization: 'General Physician', diseases: ['fever', 'arthritis'] },
-  { id: 6, name: 'Dr. Zainab Qureshi', specialization: 'Oncologist', diseases: ['cancer'] },
-  { id: 7, name: 'Dr. Bilal Ahmad', specialization: 'Neurologist', diseases: ['stroke'] }
-];
+interface Doctor {
+  id: number;
+  name: string;
+  specialization: string;
+  diseases?: string[];
+}
 
-const NURSES: Nurse[] = [
-  { id: 1, name: 'Nurse Aisha', type: 'fresh', description: 'Fresh Nurse - General Care' },
-  { id: 2, name: 'Nurse Khadija', type: 'bscn', description: 'BScN Specialized Nurse - Advanced Care' },
-  { id: 3, name: 'Nurse Mariam', type: 'fresh', description: 'Fresh Nurse - Patient Support' },
-  { id: 4, name: 'Nurse Saira', type: 'bscn', description: 'BScN Specialized Nurse - Critical Care' },
-  { id: 5, name: 'Nurse Rubina', type: 'fresh', description: 'Fresh Nurse - Daily Care' },
-  { id: 6, name: 'Nurse Farah', type: 'bscn', description: 'BScN Specialized Nurse - Rehabilitation' }
-];
+interface Nurse {
+  id: number;
+  name: string;
+  nurseType: 'fresh' | 'bscn';
+  description?: string;
+}
 
 interface AddPatientDialogProps {
   trigger?: React.ReactNode;
@@ -81,6 +77,13 @@ export function AddPatientDialog({ trigger }: AddPatientDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  
+  // State for real data from API
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [nurses, setNurses] = useState<Nurse[]>([]);
+  const [availableDoctors, setAvailableDoctors] = useState<Doctor[]>([]);
+  const [isLoadingDoctors, setIsLoadingDoctors] = useState(false);
+  const [isLoadingNurses, setIsLoadingNurses] = useState(false);
   
   const [formData, setFormData] = useState({
     // Personal Information
@@ -116,6 +119,61 @@ export function AddPatientDialog({ trigger }: AddPatientDialogProps) {
   });
 
   const totalSteps = 6;
+
+  // Load nurses when component mounts
+  useEffect(() => {
+    const loadNurses = async () => {
+      setIsLoadingNurses(true);
+      try {
+        const nursesData = await api.getNurses();
+        const formattedNurses: Nurse[] = nursesData.map(nurse => ({
+          id: nurse.id,
+          name: nurse.name,
+          nurseType: nurse.nurseType || 'fresh',
+          description: `${nurse.nurseType === 'bscn' ? 'BScN Specialized Nurse' : 'Fresh Nurse'} - ${nurse.nurseType === 'bscn' ? 'Advanced Care' : 'General Care'}`
+        }));
+        setNurses(formattedNurses);
+      } catch (error) {
+        console.error('Failed to load nurses:', error);
+        toast.error('Failed to load nurses');
+      } finally {
+        setIsLoadingNurses(false);
+      }
+    };
+
+    if (open) {
+      loadNurses();
+    }
+  }, [open]);
+
+  // Load doctors when diseases change
+  useEffect(() => {
+    const loadDoctorsByDiseases = async () => {
+      if (formData.diseases.length === 0) {
+        setAvailableDoctors([]);
+        return;
+      }
+
+      setIsLoadingDoctors(true);
+      try {
+        const doctorsData = await api.getDoctorsByDiseases(formData.diseases);
+        const formattedDoctors: Doctor[] = doctorsData.map(doctor => ({
+          id: doctor.id,
+          name: doctor.name,
+          specialization: doctor.specialization || 'General Physician'
+        }));
+        setAvailableDoctors(formattedDoctors);
+      } catch (error) {
+        console.error('Failed to load doctors:', error);
+        toast.error('Failed to load doctors for selected diseases');
+        setAvailableDoctors([]);
+      } finally {
+        setIsLoadingDoctors(false);
+      }
+    };
+
+    loadDoctorsByDiseases();
+  }, [formData.diseases]);
 
   const validateStep = (step: number): boolean => {
     const newErrors: Record<string, string> = {};
@@ -199,9 +257,7 @@ export function AddPatientDialog({ trigger }: AddPatientDialogProps) {
   };
 
   const getAvailableDoctors = () => {
-    return DOCTORS.filter(doctor => 
-      doctor.diseases.some(disease => formData.diseases.includes(disease))
-    );
+    return availableDoctors;
   };
 
   const handleSubmit = async () => {
@@ -228,15 +284,12 @@ export function AddPatientDialog({ trigger }: AddPatientDialogProps) {
         assignedNurses: formData.nurseIds,
         initialDeposit: formData.initialDeposit,
         roomType: formData.roomType,
-        // Legacy fields for compatibility
-        ageGroup: formData.age < 18 ? 'youth' as AgeGroup : 'adult' as AgeGroup,
-        condition: formData.diseases.map(id => DISEASES.find(d => d.id === id)?.name).join(', '),
         roomNumber: Math.floor(Math.random() * 100) + (formData.age < 18 ? 200 : 100),
         admissionDate: formData.admissionDate,
-        assignedStaffId: null,
       };
 
-      await addPatient(newPatient);
+      // Use API directly instead of context
+      await api.createPatient(newPatient);
       
       toast.success('Patient registered successfully with comprehensive details!');
       
@@ -420,7 +473,6 @@ export function AddPatientDialog({ trigger }: AddPatientDialogProps) {
         );
 
       case 3:
-        const availableDoctors = getAvailableDoctors();
         return (
           <div className="space-y-4">
             <div className="flex items-center gap-2 mb-4">
@@ -432,11 +484,16 @@ export function AddPatientDialog({ trigger }: AddPatientDialogProps) {
               Select a doctor based on the diseases selected. Only doctors who can treat the selected diseases are shown.
             </p>
 
-            {availableDoctors.length === 0 ? (
+            {isLoadingDoctors ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin" />
+                <span className="ml-2">Loading available doctors...</span>
+              </div>
+            ) : availableDoctors.length === 0 ? (
               <Alert>
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  No doctors available for the selected diseases. Please go back and review your disease selection.
+                  No doctors available for the selected diseases. Please go back and review your disease selection or contact administration to add doctors with relevant specializations.
                 </AlertDescription>
               </Alert>
             ) : (
@@ -457,7 +514,7 @@ export function AddPatientDialog({ trigger }: AddPatientDialogProps) {
                           <h4 className="font-semibold">{doctor.name}</h4>
                           <p className="text-sm text-muted-foreground">{doctor.specialization}</p>
                           <div className="flex flex-wrap gap-1">
-                            {doctor.diseases.filter(d => formData.diseases.includes(d)).map((diseaseId) => {
+                            {formData.diseases.map((diseaseId) => {
                               const disease = DISEASES.find(d => d.id === diseaseId);
                               return (
                                 <Badge key={diseaseId} variant="outline" className="text-xs">
@@ -493,36 +550,50 @@ export function AddPatientDialog({ trigger }: AddPatientDialogProps) {
               Select exactly 2 nurses for the patient. Each patient must be assigned two nurses for comprehensive care.
             </p>
 
-            <div className="grid grid-cols-1 gap-3 max-h-60 overflow-y-auto">
-              {NURSES.map((nurse) => (
-                <Card
-                  key={nurse.id}
-                  className={`cursor-pointer transition-colors ${
-                    formData.nurseIds.includes(nurse.id.toString())
-                      ? 'border-primary bg-primary/5'
-                      : formData.nurseIds.length >= 2
-                      ? 'opacity-50 cursor-not-allowed'
-                      : 'hover:border-primary/50'
-                  }`}
-                  onClick={() => handleNurseToggle(nurse.id.toString())}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-2">
-                        <h4 className="font-semibold">{nurse.name}</h4>
-                        <p className="text-sm text-muted-foreground">{nurse.description}</p>
-                        <Badge variant={nurse.type === 'bscn' ? 'default' : 'secondary'}>
-                          {nurse.type === 'bscn' ? 'BScN Specialized' : 'Fresh Nurse'}
-                        </Badge>
+            {isLoadingNurses ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin" />
+                <span className="ml-2">Loading available nurses...</span>
+              </div>
+            ) : nurses.length === 0 ? (
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  No nurses available. Please contact administration to add nurses to the system.
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <div className="grid grid-cols-1 gap-3 max-h-60 overflow-y-auto">
+                {nurses.map((nurse) => (
+                  <Card
+                    key={nurse.id}
+                    className={`cursor-pointer transition-colors ${
+                      formData.nurseIds.includes(nurse.id.toString())
+                        ? 'border-primary bg-primary/5'
+                        : formData.nurseIds.length >= 2
+                        ? 'opacity-50 cursor-not-allowed'
+                        : 'hover:border-primary/50'
+                    }`}
+                    onClick={() => handleNurseToggle(nurse.id.toString())}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-2">
+                          <h4 className="font-semibold">{nurse.name}</h4>
+                          <p className="text-sm text-muted-foreground">{nurse.description}</p>
+                          <Badge variant={nurse.nurseType === 'bscn' ? 'default' : 'secondary'}>
+                            {nurse.nurseType === 'bscn' ? 'BScN Specialized' : 'Fresh Nurse'}
+                          </Badge>
+                        </div>
+                        {formData.nurseIds.includes(nurse.id.toString()) && (
+                          <CheckCircle className="h-5 w-5 text-primary" />
+                        )}
                       </div>
-                      {formData.nurseIds.includes(nurse.id.toString()) && (
-                        <CheckCircle className="h-5 w-5 text-primary" />
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
 
             {formData.nurseIds.length > 0 && (
               <div className="mt-4">
@@ -531,7 +602,7 @@ export function AddPatientDialog({ trigger }: AddPatientDialogProps) {
                 </Label>
                 <div className="flex flex-wrap gap-2 mt-2">
                   {formData.nurseIds.map((nurseId) => {
-                    const nurse = NURSES.find(n => n.id.toString() === nurseId);
+                    const nurse = nurses.find(n => n.id.toString() === nurseId);
                     return (
                       <Badge key={nurseId} variant="secondary">
                         {nurse?.name}
