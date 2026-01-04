@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -77,7 +77,15 @@ interface MedicationAdministration {
 }
 
 export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) {
-  const { patients, getStaffPatients, addNurseReport, getPatientNurseReports, getUnreviewedReports } = useData();
+  const { 
+    patients, 
+    getStaffPatients, 
+    createVitalSigns,
+    createNurseReportAPI,
+    getVitalSignsByPatient,
+    getMedicationAdministrationsByPatient,
+    administerMedicationAPI
+  } = useData();
   const [open, setOpen] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [activeTab, setActiveTab] = useState('patients');
@@ -111,7 +119,7 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
     urgency: 'medium'
   });
 
-  const handlePatientSelect = (patient: Patient) => {
+  const handlePatientSelect = async (patient: Patient) => {
     setSelectedPatient(patient);
     setActiveTab('vitals');
     
@@ -136,7 +144,33 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
       notes: '',
       urgency: 'medium'
     });
+
+    // Load patient data if not already cached
+    if (!vitalSignsCache[patient.id.toString()]) {
+      await getPatientVitals(patient);
+    }
+    if (!medicationAdministrationsCache[patient.id.toString()]) {
+      await getPatientMedications(patient);
+    }
+    if (!nurseReportsCache[patient.id.toString()]) {
+      await getPatientReports(patient);
+    }
   };
+
+  // Load vital signs for all patients on mount
+  useEffect(() => {
+    const loadPatientData = async () => {
+      for (const patient of nursePatients) {
+        await getPatientVitals(patient);
+        await getPatientMedications(patient);
+        await getPatientReports(patient);
+      }
+    };
+    
+    if (nursePatients.length > 0) {
+      loadPatientData();
+    }
+  }, [nursePatients]);
 
   const handleSaveVitals = async () => {
     if (!selectedPatient) return;
@@ -149,20 +183,21 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
 
     setIsUpdating(true);
     try {
-      const newVital: VitalSigns = {
-        id: Date.now().toString(),
-        patientId: selectedPatient.id.toString(),
-        ...vitalForm,
-        recordedBy: nurse.name
-      };
-
-      setVitalSigns(prev => ({
-        ...prev,
-        [selectedPatient.id.toString()]: [
-          ...(prev[selectedPatient.id.toString()] || []),
-          newVital
-        ]
-      }));
+      await createVitalSigns({
+        patientId: Number(selectedPatient.id),
+        date: vitalForm.date,
+        time: vitalForm.time,
+        bloodPressure: vitalForm.bloodPressure,
+        heartRate: vitalForm.heartRate,
+        temperature: vitalForm.temperature,
+        oxygenSaturation: vitalForm.oxygenSaturation,
+        respiratoryRate: vitalForm.respiratoryRate,
+        notes: vitalForm.notes,
+        recordedBy: nurse.name,
+      });
+      
+      // Refresh vital signs cache
+      await getPatientVitals(selectedPatient);
       
       // Reset form
       setVitalForm({
@@ -195,12 +230,20 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
 
     setIsUpdating(true);
     try {
-      // Add the report using the shared context
-      addNurseReport({
-        patientId: selectedPatient.id.toString(),
+      await createNurseReportAPI({
+        patientId: Number(selectedPatient.id),
         reportedBy: nurse.name,
-        ...conditionForm
+        date: conditionForm.date,
+        time: conditionForm.time,
+        conditionUpdate: conditionForm.conditionUpdate,
+        symptoms: conditionForm.symptoms,
+        painLevel: conditionForm.painLevel,
+        notes: conditionForm.notes,
+        urgency: conditionForm.urgency,
       });
+      
+      // Refresh reports cache
+      await getPatientReports(selectedPatient);
       
       // Reset form
       setConditionForm({
@@ -241,85 +284,102 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
   const handleMedicationAdministration = async (medicationId: string, administered: boolean) => {
     if (!selectedPatient) return;
     
-    setMedicationAdministrations(prev => ({
-      ...prev,
-      [selectedPatient.id.toString()]: (prev[selectedPatient.id.toString()] || []).map(med =>
-        med.id === medicationId
-          ? {
-              ...med,
-              administered,
-              administeredTime: administered ? new Date().toTimeString().slice(0, 5) : undefined,
-              administeredBy: administered ? nurse.name : undefined
-            }
-          : med
-      )
-    }));
-
-    const medication = getMockMedications(selectedPatient).find(m => m.id === medicationId);
-    if (administered) {
-      toast.success(`${medication?.medicationName} administered to ${selectedPatient.name}`);
-    } else {
-      toast.info(`${medication?.medicationName} administration cancelled`);
-    }
-  };
-
-  // Mock medication data - in real app, this would come from doctor's prescriptions
-  const getMockMedications = (patient: Patient): MedicationAdministration[] => {
-    const patientId = patient.id.toString();
-    if (medicationAdministrations[patientId]) {
-      return medicationAdministrations[patientId];
-    }
-
-    // Generate mock medications based on patient's condition
-    const mockMeds: MedicationAdministration[] = [
-      {
-        id: `${patientId}-med-1`,
-        patientId,
-        medicationName: 'Paracetamol',
-        dosage: '500mg',
-        scheduledTime: '08:00',
-        administered: false,
-        notes: 'Take with food'
-      },
-      {
-        id: `${patientId}-med-2`,
-        patientId,
-        medicationName: 'Vitamin D',
-        dosage: '1000 IU',
-        scheduledTime: '12:00',
-        administered: false,
-        notes: 'Daily supplement'
-      },
-      {
-        id: `${patientId}-med-3`,
-        patientId,
-        medicationName: 'Physiotherapy Exercise',
-        dosage: '30 minutes',
-        scheduledTime: '16:00',
-        administered: false,
-        notes: 'Supervised exercise session'
+    try {
+      if (administered) {
+        await administerMedicationAPI(Number(medicationId), nurse.name);
+        toast.success(`Medication administered to ${selectedPatient.name}`);
+      } else {
+        // For now, we'll just show a message since we don't have an "unadminister" API
+        toast.info(`Medication administration cancelled`);
       }
-    ];
-
-    setMedicationAdministrations(prev => ({
-      ...prev,
-      [patientId]: mockMeds
-    }));
-
-    return mockMeds;
+      
+      // Refresh the medication list
+      await getPatientMedications(selectedPatient);
+    } catch (error) {
+      toast.error('Failed to update medication administration');
+    }
   };
 
-  const getPatientVitals = (patient: Patient) => {
-    return vitalSigns[patient.id.toString()] || [];
+  // API-based functions to replace mock data
+  const [vitalSignsCache, setVitalSignsCache] = useState<Record<string, VitalSigns[]>>({});
+  const [medicationAdministrationsCache, setMedicationAdministrationsCache] = useState<Record<string, MedicationAdministration[]>>({});
+  const [nurseReportsCache, setNurseReportsCache] = useState<Record<string, any[]>>({});
+
+  const getPatientVitals = async (patient: Patient): Promise<VitalSigns[]> => {
+    try {
+      const patientId = Number(patient.id);
+      const vitals = await getVitalSignsByPatient(patientId);
+      
+      // Convert API format to component format
+      const formattedVitals = vitals.map(vital => ({
+        id: vital.id.toString(),
+        patientId: vital.patientId.toString(),
+        date: vital.date,
+        time: vital.time,
+        bloodPressure: vital.bloodPressure,
+        heartRate: vital.heartRate,
+        temperature: vital.temperature,
+        oxygenSaturation: vital.oxygenSaturation || '',
+        respiratoryRate: vital.respiratoryRate || '',
+        notes: vital.notes || '',
+        recordedBy: vital.recordedBy,
+      }));
+      
+      setVitalSignsCache(prev => ({
+        ...prev,
+        [patient.id.toString()]: formattedVitals
+      }));
+      
+      return formattedVitals;
+    } catch (error) {
+      console.error('Failed to get patient vitals:', error);
+      return [];
+    }
   };
 
-  const getTodayVitals = (patient: Patient) => {
+  const getTodayVitals = (patient: Patient): VitalSigns[] => {
+    const cachedVitals = vitalSignsCache[patient.id.toString()] || [];
     const today = new Date().toISOString().split('T')[0];
-    return getPatientVitals(patient).filter(vital => vital.date === today);
+    return cachedVitals.filter(vital => vital.date === today);
+  };
+
+  const getPatientMedications = async (patient: Patient): Promise<MedicationAdministration[]> => {
+    try {
+      const patientId = Number(patient.id);
+      const today = new Date().toISOString().split('T')[0];
+      const administrations = await getMedicationAdministrationsByPatient(patientId, today);
+      
+      setMedicationAdministrationsCache(prev => ({
+        ...prev,
+        [patient.id.toString()]: administrations
+      }));
+      
+      return administrations;
+    } catch (error) {
+      console.error('Failed to get patient medications:', error);
+      return [];
+    }
+  };
+
+  const getPatientReports = async (patient: Patient) => {
+    try {
+      const reports = await getUnreviewedReports(patient.id.toString());
+      setNurseReportsCache(prev => ({
+        ...prev,
+        [patient.id.toString()]: reports
+      }));
+      return reports;
+    } catch (error) {
+      console.error('Failed to get patient reports:', error);
+      return [];
+    }
   };
 
   const getVitalStatus = (patient: Patient) => {
-    const todayVitals = getTodayVitals(patient);
+    const cachedVitals = vitalSignsCache[patient.id.toString()] || [];
+    const today = new Date().toISOString().split('T')[0];
+    const todayVitals = cachedVitals.filter(vital => vital.date === today);
+    
     if (todayVitals.length === 0) return 'pending';
     
     const lastVital = todayVitals[todayVitals.length - 1];
@@ -461,8 +521,8 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
                           <Pill className="h-4 w-4 text-muted-foreground" />
                           <span className="text-muted-foreground">Medications:</span>
                           <span className="font-medium">
-                            {getMockMedications(patient).filter(m => m.administered).length}/
-                            {getMockMedications(patient).length} given
+                            {(medicationAdministrationsCache[patient.id.toString()] || []).filter(m => m.administered).length}/
+                            {(medicationAdministrationsCache[patient.id.toString()] || []).length} given
                           </span>
                         </div>
 
@@ -470,7 +530,7 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
                           <AlertCircle className="h-4 w-4 text-muted-foreground" />
                           <span className="text-muted-foreground">Reports:</span>
                           <span className="font-medium">
-                            {getUnreviewedReports(patient).length} pending review
+                            {(nurseReportsCache[patient.id.toString()] || []).length} pending review
                           </span>
                         </div>
                       </CardContent>
@@ -632,12 +692,15 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-4">
-                        {getTodayVitals(selectedPatient).length === 0 ? (
+                        {(vitalSignsCache[selectedPatient.id.toString()] || [])
+                          .filter(vital => vital.date === new Date().toISOString().split('T')[0])
+                          .length === 0 ? (
                           <p className="text-muted-foreground text-center py-8">
                             No vital signs recorded today.
                           </p>
                         ) : (
-                          getTodayVitals(selectedPatient)
+                          (vitalSignsCache[selectedPatient.id.toString()] || [])
+                            .filter(vital => vital.date === new Date().toISOString().split('T')[0])
                             .sort((a, b) => `${b.date}T${b.time}`.localeCompare(`${a.date}T${a.time}`))
                             .map((vital) => (
                               <Card key={vital.id} className="p-4">
@@ -846,12 +909,12 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-4">
-                        {getPatientNurseReports(selectedPatient.id.toString()).length === 0 ? (
+                        {(nurseReportsCache[selectedPatient.id.toString()] || []).length === 0 ? (
                           <p className="text-muted-foreground text-center py-8">
                             No condition reports submitted yet.
                           </p>
                         ) : (
-                          getPatientNurseReports(selectedPatient.id.toString())
+                          (nurseReportsCache[selectedPatient.id.toString()] || [])
                             .sort((a, b) => `${b.date}T${b.time}`.localeCompare(`${a.date}T${a.time}`))
                             .map((report) => (
                               <Card key={report.id} className="p-4">
@@ -974,7 +1037,7 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      {getMockMedications(selectedPatient).map((medication) => (
+                      {(medicationAdministrationsCache[selectedPatient.id.toString()] || []).map((medication) => (
                         <Card key={medication.id} className="p-4">
                           <div className="flex items-center justify-between">
                             <div className="flex-1">
@@ -1079,7 +1142,7 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
                 <CardContent>
                   <div className="text-3xl font-bold">
                     {nursePatients.reduce((total, patient) => 
-                      total + getMockMedications(patient).filter(m => m.administered).length, 0
+                      total + (medicationAdministrationsCache[patient.id.toString()] || []).filter(m => m.administered).length, 0
                     )}
                   </div>
                   <p className="text-muted-foreground">Administered today</p>
@@ -1096,7 +1159,7 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
                 <CardContent>
                   <div className="text-3xl font-bold">
                     {nursePatients.reduce((total, patient) => 
-                      total + getUnreviewedReports(patient.id.toString()).length, 0
+                      total + (nurseReportsCache[patient.id.toString()] || []).length, 0
                     )}
                   </div>
                   <p className="text-muted-foreground">Pending doctor review</p>
@@ -1114,9 +1177,9 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
                   {nursePatients.map((patient) => {
                     const vitalStatus = getVitalStatus(patient);
                     const todayVitals = getTodayVitals(patient);
-                    const medications = getMockMedications(patient);
+                    const medications = medicationAdministrationsCache[patient.id.toString()] || [];
                     const administeredMeds = medications.filter(m => m.administered);
-                    const unreviewedReports = getUnreviewedReports(patient.id.toString());
+                    const unreviewedReports = nurseReportsCache[patient.id.toString()] || [];
                     
                     return (
                       <div key={patient.id} className="flex items-center gap-3 p-3 rounded-lg border">

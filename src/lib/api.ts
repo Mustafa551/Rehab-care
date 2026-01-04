@@ -46,6 +46,83 @@ export interface Patient {
   updatedAt: string;
 }
 
+export interface VitalSigns {
+  id: number;
+  patientId: number;
+  date: string;
+  time: string;
+  bloodPressure: string;
+  heartRate: string;
+  temperature: string;
+  oxygenSaturation?: string;
+  respiratoryRate?: string;
+  notes?: string;
+  recordedBy: string;
+  createdAt: string;
+}
+
+export interface NurseReport {
+  id: number;
+  patientId: number;
+  reportedBy: string;
+  date: string;
+  time: string;
+  conditionUpdate: string;
+  symptoms: string[];
+  painLevel?: number;
+  notes?: string;
+  urgency: 'low' | 'medium' | 'high';
+  reviewedByDoctor: boolean;
+  doctorResponse?: string;
+  createdAt: string;
+}
+
+export interface PatientCondition {
+  id: number;
+  patientId: number;
+  assessedBy: string;
+  date: string;
+  condition: string;
+  notes?: string;
+  medications: any[];
+  vitals?: any;
+  dischargeRecommendation: 'continue' | 'discharge';
+  dischargeNotes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Medication {
+  id: number;
+  patientId: number;
+  prescribedBy: string;
+  medicationName: string;
+  dosage: string;
+  frequency: string;
+  startDate: string;
+  endDate?: string;
+  notes?: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface MedicationAdministration {
+  id: number;
+  medicationId: number;
+  patientId: number;
+  scheduledTime: string;
+  administeredTime?: string;
+  administered: boolean;
+  administeredBy?: string;
+  notes?: string;
+  date: string;
+  createdAt: string;
+  // Joined fields from medication
+  medicationName?: string;
+  dosage?: string;
+  frequency?: string;
+}
+
 class ApiError extends Error {
   constructor(
     message: string,
@@ -302,6 +379,219 @@ export const api = {
     return apiRequest(`/patients/${patientId}/discharge`, {
       method: 'POST',
       body: JSON.stringify(dischargeData || {}),
+    });
+  },
+
+  // Vital Signs endpoints
+  getAllVitalSigns: async (): Promise<VitalSigns[]> => {
+    return apiRequest<VitalSigns[]>('/vital-signs');
+  },
+
+  getVitalSignsByPatient: async (patientId: number, date?: string): Promise<VitalSigns[]> => {
+    const endpoint = date 
+      ? `/vital-signs/patient/${patientId}?date=${date}`
+      : `/vital-signs/patient/${patientId}`;
+    return apiRequest<VitalSigns[]>(endpoint);
+  },
+
+  createVitalSigns: async (vitalData: {
+    patientId: number;
+    date: string;
+    time: string;
+    bloodPressure: string;
+    heartRate: string;
+    temperature: string;
+    oxygenSaturation?: string;
+    respiratoryRate?: string;
+    notes?: string;
+    recordedBy: string;
+  }): Promise<VitalSigns> => {
+    return apiRequest<VitalSigns>('/vital-signs', {
+      method: 'POST',
+      body: JSON.stringify(vitalData),
+    });
+  },
+
+  updateVitalSigns: async (id: number, vitalData: any): Promise<VitalSigns> => {
+    return apiRequest<VitalSigns>(`/vital-signs/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(vitalData),
+    });
+  },
+
+  deleteVitalSigns: async (id: number) => {
+    return apiRequest(`/vital-signs/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  // Nurse Reports endpoints
+  getAllNurseReports: async (): Promise<NurseReport[]> => {
+    return apiRequest<NurseReport[]>('/nurse-reports');
+  },
+
+  getNurseReportsByPatient: async (patientId: number): Promise<NurseReport[]> => {
+    return apiRequest<NurseReport[]>(`/nurse-reports/patient/${patientId}`);
+  },
+
+  getUnreviewedReportsByPatient: async (patientId: number): Promise<NurseReport[]> => {
+    return apiRequest<NurseReport[]>(`/nurse-reports/patient/${patientId}/unreviewed`);
+  },
+
+  getAllUnreviewedReports: async (): Promise<NurseReport[]> => {
+    return apiRequest<NurseReport[]>('/nurse-reports/unreviewed');
+  },
+
+  createNurseReport: async (reportData: {
+    patientId: number;
+    reportedBy: string;
+    date: string;
+    time: string;
+    conditionUpdate: string;
+    symptoms?: string[];
+    painLevel?: number;
+    notes?: string;
+    urgency: 'low' | 'medium' | 'high';
+  }): Promise<NurseReport> => {
+    return apiRequest<NurseReport>('/nurse-reports', {
+      method: 'POST',
+      body: JSON.stringify(reportData),
+    });
+  },
+
+  updateNurseReport: async (id: number, reportData: any): Promise<NurseReport> => {
+    return apiRequest<NurseReport>(`/nurse-reports/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(reportData),
+    });
+  },
+
+  reviewNurseReport: async (id: number, doctorResponse: string): Promise<NurseReport> => {
+    return apiRequest<NurseReport>(`/nurse-reports/${id}/review`, {
+      method: 'POST',
+      body: JSON.stringify({ doctorResponse }),
+    });
+  },
+
+  deleteNurseReport: async (id: number) => {
+    return apiRequest(`/nurse-reports/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  // Patient Conditions endpoints
+  getAllPatientConditions: async (): Promise<PatientCondition[]> => {
+    return apiRequest<PatientCondition[]>('/patient-conditions');
+  },
+
+  getPatientConditionsByPatient: async (patientId: number): Promise<PatientCondition[]> => {
+    return apiRequest<PatientCondition[]>(`/patient-conditions/patient/${patientId}`);
+  },
+
+  getLatestPatientCondition: async (patientId: number): Promise<PatientCondition | null> => {
+    return apiRequest<PatientCondition | null>(`/patient-conditions/patient/${patientId}/latest`);
+  },
+
+  createPatientCondition: async (conditionData: {
+    patientId: number;
+    assessedBy: string;
+    date: string;
+    condition: string;
+    notes?: string;
+    medications?: any[];
+    vitals?: any;
+    dischargeRecommendation?: 'continue' | 'discharge';
+    dischargeNotes?: string;
+  }): Promise<PatientCondition> => {
+    return apiRequest<PatientCondition>('/patient-conditions', {
+      method: 'POST',
+      body: JSON.stringify(conditionData),
+    });
+  },
+
+  updatePatientCondition: async (id: number, conditionData: any): Promise<PatientCondition> => {
+    return apiRequest<PatientCondition>(`/patient-conditions/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(conditionData),
+    });
+  },
+
+  deletePatientCondition: async (id: number) => {
+    return apiRequest(`/patient-conditions/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  // Medications endpoints
+  getAllMedications: async (): Promise<Medication[]> => {
+    return apiRequest<Medication[]>('/medications');
+  },
+
+  getMedicationsByPatient: async (patientId: number): Promise<Medication[]> => {
+    return apiRequest<Medication[]>(`/medications/patient/${patientId}`);
+  },
+
+  createMedication: async (medicationData: {
+    patientId: number;
+    prescribedBy: string;
+    medicationName: string;
+    dosage: string;
+    frequency: string;
+    startDate: string;
+    endDate?: string;
+    notes?: string;
+  }): Promise<Medication> => {
+    return apiRequest<Medication>('/medications', {
+      method: 'POST',
+      body: JSON.stringify(medicationData),
+    });
+  },
+
+  updateMedication: async (id: number, medicationData: any): Promise<Medication> => {
+    return apiRequest<Medication>(`/medications/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(medicationData),
+    });
+  },
+
+  deleteMedication: async (id: number) => {
+    return apiRequest(`/medications/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  // Medication Administration endpoints
+  getMedicationAdministrationsByPatient: async (patientId: number, date?: string): Promise<MedicationAdministration[]> => {
+    const endpoint = date 
+      ? `/medications/administrations/patient/${patientId}?date=${date}`
+      : `/medications/administrations/patient/${patientId}`;
+    return apiRequest<MedicationAdministration[]>(endpoint);
+  },
+
+  createMedicationAdministration: async (administrationData: {
+    medicationId: number;
+    patientId: number;
+    scheduledTime: string;
+    date: string;
+    notes?: string;
+  }): Promise<MedicationAdministration> => {
+    return apiRequest<MedicationAdministration>('/medications/administrations', {
+      method: 'POST',
+      body: JSON.stringify(administrationData),
+    });
+  },
+
+  updateMedicationAdministration: async (id: number, administrationData: any): Promise<MedicationAdministration> => {
+    return apiRequest<MedicationAdministration>(`/medications/administrations/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(administrationData),
+    });
+  },
+
+  administerMedication: async (id: number, administeredBy: string, notes?: string): Promise<MedicationAdministration> => {
+    return apiRequest<MedicationAdministration>(`/medications/administrations/${id}/administer`, {
+      method: 'POST',
+      body: JSON.stringify({ administeredBy, notes }),
     });
   },
 };

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -81,11 +81,13 @@ export function DoctorDetailsDialog({ doctor, trigger }: DoctorDetailsDialogProp
   const { 
     patients, 
     getStaffPatients, 
-    getPatientNurseReports, 
-    getUnreviewedReports, 
-    updateNurseReport,
-    updatePatientCondition,
-    getPatientCondition
+    getNurseReportsByPatientAPI,
+    getUnreviewedReportsByPatientAPI,
+    reviewNurseReportAPI,
+    createPatientConditionAPI,
+    getLatestPatientCondition,
+    createMedicationAPI,
+    getMedicationsByPatient
   } = useData();
   const [open, setOpen] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
@@ -98,6 +100,8 @@ export function DoctorDetailsDialog({ doctor, trigger }: DoctorDetailsDialogProp
   );
 
   const [doctorResponses, setDoctorResponses] = useState<Record<string, string>>({});
+  const [nurseReportsCache, setNurseReportsCache] = useState<Record<string, any[]>>({});
+  const [patientConditionsCache, setPatientConditionsCache] = useState<Record<string, any>>({});
   
   const [conditionForm, setConditionForm] = useState<PatientConditionUpdate>({
     date: new Date().toISOString().split('T')[0],
@@ -109,14 +113,83 @@ export function DoctorDetailsDialog({ doctor, trigger }: DoctorDetailsDialogProp
     dischargeNotes: ''
   });
 
-  const handlePatientSelect = (patient: Patient) => {
+  // Load patient data functions
+  const loadPatientReports = async (patient: Patient) => {
+    try {
+      const reports = await getNurseReportsByPatientAPI(Number(patient.id));
+      setNurseReportsCache(prev => ({
+        ...prev,
+        [patient.id.toString()]: reports
+      }));
+      return reports;
+    } catch (error) {
+      console.error('Failed to load patient reports:', error);
+      return [];
+    }
+  };
+
+  const loadPatientCondition = async (patient: Patient) => {
+    try {
+      const condition = await getLatestPatientCondition(Number(patient.id));
+      if (condition) {
+        setPatientConditionsCache(prev => ({
+          ...prev,
+          [patient.id.toString()]: condition
+        }));
+      }
+      return condition;
+    } catch (error) {
+      console.error('Failed to load patient condition:', error);
+      return null;
+    }
+  };
+
+  const getPatientNurseReports = (patientId: string) => {
+    return nurseReportsCache[patientId] || [];
+  };
+
+  const getUnreviewedReports = (patientId: string) => {
+    const reports = nurseReportsCache[patientId] || [];
+    return reports.filter(report => !report.reviewedByDoctor);
+  };
+
+  const getPatientCondition = (patientId: string) => {
+    return patientConditionsCache[patientId] || null;
+  };
+
+  // Load data for all patients on mount
+  useEffect(() => {
+    const loadAllPatientData = async () => {
+      for (const patient of doctorPatients) {
+        await loadPatientReports(patient);
+        await loadPatientCondition(patient);
+      }
+    };
+    
+    if (doctorPatients.length > 0) {
+      loadAllPatientData();
+    }
+  }, [doctorPatients]);
+
+  const handlePatientSelect = async (patient: Patient) => {
     setSelectedPatient(patient);
     setActiveTab('condition');
     
+    // Load patient data
+    await loadPatientReports(patient);
+    const existingCondition = await loadPatientCondition(patient);
+    
     // Load existing condition data or initialize new
-    const existingCondition = getPatientCondition(patient.id.toString());
     if (existingCondition) {
-      setConditionForm(existingCondition);
+      setConditionForm({
+        date: existingCondition.date,
+        condition: existingCondition.condition || patient.medicalCondition || '',
+        notes: existingCondition.notes || '',
+        medications: existingCondition.medications || [],
+        vitals: existingCondition.vitals || {},
+        dischargeRecommendation: existingCondition.dischargeRecommendation || 'continue',
+        dischargeNotes: existingCondition.dischargeNotes || ''
+      });
     } else {
       setConditionForm({
         date: new Date().toISOString().split('T')[0],
@@ -133,21 +206,29 @@ export function DoctorDetailsDialog({ doctor, trigger }: DoctorDetailsDialogProp
   const handleReviewReport = async (reportId: string, response: string) => {
     if (!selectedPatient) return;
 
-    const patientId = selectedPatient.id.toString();
-    
-    // Update the report using the shared context
-    updateNurseReport(reportId, patientId, {
-      reviewedByDoctor: true,
-      doctorResponse: response
-    });
+    try {
+      await reviewNurseReportAPI(Number(reportId), response);
+      
+      // Update local cache
+      setNurseReportsCache(prev => ({
+        ...prev,
+        [selectedPatient.id.toString()]: prev[selectedPatient.id.toString()].map(report =>
+          report.id.toString() === reportId
+            ? { ...report, reviewedByDoctor: true, doctorResponse: response }
+            : report
+        )
+      }));
 
-    // Clear the response input
-    setDoctorResponses(prev => ({
-      ...prev,
-      [reportId]: ''
-    }));
+      // Clear the response input
+      setDoctorResponses(prev => ({
+        ...prev,
+        [reportId]: ''
+      }));
 
-    toast.success('Report reviewed and response sent to nursing staff');
+      toast.success('Report reviewed and response sent to nursing staff');
+    } catch (error) {
+      toast.error('Failed to review report');
+    }
   };
 
   const handleAddMedication = () => {
@@ -164,6 +245,27 @@ export function DoctorDetailsDialog({ doctor, trigger }: DoctorDetailsDialogProp
       ...prev,
       medications: [...prev.medications, newMedication]
     }));
+  };
+
+  const handleSaveMedication = async (medication: PatientMedication) => {
+    if (!selectedPatient || !medication.name.trim()) return;
+
+    try {
+      await createMedicationAPI({
+        patientId: Number(selectedPatient.id),
+        medicationName: medication.name,
+        dosage: medication.dosage,
+        frequency: medication.frequency,
+        startDate: medication.startDate,
+        endDate: medication.endDate,
+        notes: medication.notes,
+        prescribedBy: doctor.name,
+      });
+      
+      toast.success('Medication prescribed successfully');
+    } catch (error) {
+      toast.error('Failed to prescribe medication');
+    }
   };
 
   const handleUpdateMedication = (medicationId: string, field: keyof PatientMedication, value: string) => {
@@ -187,8 +289,26 @@ export function DoctorDetailsDialog({ doctor, trigger }: DoctorDetailsDialogProp
     
     setIsUpdating(true);
     try {
-      // Update patient condition in shared context
-      updatePatientCondition(selectedPatient.id.toString(), conditionForm);
+      // Create patient condition using API
+      const conditionData = {
+        patientId: Number(selectedPatient.id),
+        assessedBy: doctor.name,
+        date: conditionForm.date,
+        condition: conditionForm.condition,
+        notes: conditionForm.notes,
+        medications: conditionForm.medications,
+        vitals: conditionForm.vitals,
+        dischargeRecommendation: conditionForm.dischargeRecommendation,
+        dischargeNotes: conditionForm.dischargeNotes,
+      };
+
+      const savedCondition = await createPatientConditionAPI(conditionData);
+      
+      // Update local cache
+      setPatientConditionsCache(prev => ({
+        ...prev,
+        [selectedPatient.id.toString()]: savedCondition
+      }));
       
       toast.success('Patient condition updated successfully');
       

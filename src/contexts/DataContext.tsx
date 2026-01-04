@@ -5,7 +5,7 @@ import {
   doctorNotes as initialNotes,
   rehabProgress as initialProgress
 } from '@/data/mockData';
-import { api, ApiError } from '@/lib/api';
+import { api, ApiError, VitalSigns, NurseReport, PatientCondition, Medication, MedicationAdministration } from '@/lib/api';
 
 interface PatientConditionReport {
   id: string;
@@ -48,15 +48,36 @@ interface DataContextType {
   refreshStaff: () => Promise<void>;
   refreshPatients: () => Promise<void>;
   // Nurse reports actions
-  addNurseReport: (report: Omit<PatientConditionReport, 'id' | 'reviewedByDoctor'>) => void;
-  updateNurseReport: (reportId: string, patientId: string, updates: Partial<PatientConditionReport>) => void;
-  getPatientNurseReports: (patientId: string) => PatientConditionReport[];
-  getUnreviewedReports: (patientId: string) => PatientConditionReport[];
+  addNurseReport: (report: Omit<PatientConditionReport, 'id' | 'reviewedByDoctor'>) => Promise<void>;
+  updateNurseReport: (reportId: string, patientId: string, updates: Partial<PatientConditionReport>) => Promise<void>;
+  getPatientNurseReports: (patientId: string) => Promise<PatientConditionReport[]>;
+  getUnreviewedReports: (patientId: string) => Promise<PatientConditionReport[]>;
   // Patient condition actions
-  updatePatientCondition: (patientId: string, condition: any) => void;
-  getPatientCondition: (patientId: string) => any;
-  isPatientReadyForDischarge: (patientId: string) => boolean;
+  updatePatientCondition: (patientId: string, condition: any) => Promise<void>;
+  getPatientCondition: (patientId: string) => Promise<any>;
+  isPatientReadyForDischarge: (patientId: string) => Promise<boolean>;
   dischargePatient: (patientId: string) => Promise<void>;
+  
+  // New API-based functions
+  // Vital Signs
+  getVitalSignsByPatient: (patientId: number, date?: string) => Promise<VitalSigns[]>;
+  createVitalSigns: (vitalData: any) => Promise<VitalSigns>;
+  
+  // Nurse Reports (API-based)
+  getNurseReportsByPatientAPI: (patientId: number) => Promise<NurseReport[]>;
+  getUnreviewedReportsByPatientAPI: (patientId: number) => Promise<NurseReport[]>;
+  createNurseReportAPI: (reportData: any) => Promise<NurseReport>;
+  reviewNurseReportAPI: (id: number, doctorResponse: string) => Promise<NurseReport>;
+  
+  // Patient Conditions (API-based)
+  getLatestPatientCondition: (patientId: number) => Promise<PatientCondition | null>;
+  createPatientConditionAPI: (conditionData: any) => Promise<PatientCondition>;
+  
+  // Medications
+  getMedicationsByPatient: (patientId: number) => Promise<Medication[]>;
+  createMedicationAPI: (medicationData: any) => Promise<Medication>;
+  getMedicationAdministrationsByPatient: (patientId: number, date?: string) => Promise<MedicationAdministration[]>;
+  administerMedicationAPI: (id: number, administeredBy: string, notes?: string) => Promise<MedicationAdministration>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -78,7 +99,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     loadStaff();
     loadPatients();
-    initializeMockNurseReports();
   }, []);
 
   const loadStaff = async () => {
@@ -122,12 +142,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
         roomNumber: Math.floor(Math.random() * 100) + 100, // Temporary random room number
       }));
       
-      console.log('Loaded patients:', formattedPatients.map(p => ({ 
-        name: p.name, 
-        assignedNurses: p.assignedNurses,
-        assignedDoctorId: p.assignedDoctorId 
-      })));
-      
       setPatients(formattedPatients);
     } catch (error) {
       console.error('Failed to load patients:', error);
@@ -146,61 +160,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     await loadPatients();
   };
 
-  // Initialize some mock nurse reports for demonstration
-  const initializeMockNurseReports = () => {
-    // This will be called once on app load to create some sample reports
-    const mockReports: Record<string, PatientConditionReport[]> = {
-      '1': [
-        {
-          id: 'report-1-1',
-          patientId: '1',
-          reportedBy: 'Nurse Aisha',
-          date: new Date().toISOString().split('T')[0],
-          time: '14:30',
-          conditionUpdate: 'Patient showing signs of improvement. More alert and responsive during medication time.',
-          symptoms: ['Fatigue'],
-          painLevel: 3,
-          notes: 'Patient requested additional pillow for comfort. Appetite has improved.',
-          urgency: 'low',
-          reviewedByDoctor: false
-        },
-        {
-          id: 'report-1-2',
-          patientId: '1',
-          reportedBy: 'Nurse Khadija',
-          date: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          time: '09:15',
-          conditionUpdate: 'Patient complained of increased discomfort during morning routine. Vital signs stable but patient seems restless.',
-          symptoms: ['Pain', 'Anxiety', 'Difficulty sleeping'],
-          painLevel: 6,
-          notes: 'Patient mentioned difficulty sleeping last night. Requesting pain medication review.',
-          urgency: 'medium',
-          reviewedByDoctor: true,
-          doctorResponse: 'Adjusted pain medication dosage. Monitor for next 24 hours and report any changes.'
-        }
-      ]
-    };
-    
-    setNurseReports(mockReports);
-
-    // Add some mock patient conditions to demonstrate discharge functionality
-    // Removed mock discharge conditions to prevent new patients from showing discharge button
-    const mockConditions: Record<string, any> = {
-      // No mock conditions - discharge status should only be set by doctors
-    };
-
-    setPatientConditions(mockConditions);
-  };
-
   const addPatient = async (patientData: Omit<Patient, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
       setPatientError(null);
-      console.log('Creating patient with data:', {
-        name: patientData.name,
-        assignedDoctorId: patientData.assignedDoctorId,
-        assignedNurses: patientData.assignedNurses,
-      });
-      
       const newPatient = await api.createPatient({
         name: patientData.name,
         email: patientData.email || '',
@@ -291,19 +253,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
       return patients.filter(p => p.assignedDoctorId?.toString() === staffId.toString());
     } else if (staff?.role === 'nurse') {
       // For nurses, get patients that have this nurse in their assignedNurses array
-      const nursePatients = patients.filter(p => {
-        console.log(`Checking patient ${p.name}:`, {
-          assignedNurses: p.assignedNurses,
-          nurseId: staffId.toString(),
-          hasNurses: p.assignedNurses && Array.isArray(p.assignedNurses),
-          includesNurse: p.assignedNurses && Array.isArray(p.assignedNurses) && p.assignedNurses.includes(staffId.toString())
-        });
-        return p.assignedNurses && 
-               Array.isArray(p.assignedNurses) && 
-               p.assignedNurses.includes(staffId.toString());
-      });
-      console.log(`Nurse ${staffId} has ${nursePatients.length} patients:`, nursePatients.map(p => p.name));
-      return nursePatients;
+      return patients.filter(p => 
+        p.assignedNurses && 
+        Array.isArray(p.assignedNurses) && 
+        p.assignedNurses.includes(staffId.toString())
+      );
     } else {
       // For other staff types, return empty array
       return [];
@@ -320,57 +274,120 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return staffMembers.find(s => s.id.toString() === patient.assignedDoctorId?.toString()) || null;
   };
 
-  // Nurse reports functions
-  const addNurseReport = (reportData: Omit<PatientConditionReport, 'id' | 'reviewedByDoctor'>) => {
-    const newReport: PatientConditionReport = {
-      ...reportData,
-      id: `report-${Date.now()}`,
-      reviewedByDoctor: false
-    };
-
-    setNurseReports(prev => ({
-      ...prev,
-      [reportData.patientId]: [
-        ...(prev[reportData.patientId] || []),
-        newReport
-      ]
-    }));
+  // Legacy functions for backward compatibility - now use APIs
+  const addNurseReport = async (reportData: Omit<PatientConditionReport, 'id' | 'reviewedByDoctor'>): Promise<void> => {
+    try {
+      await api.createNurseReport({
+        patientId: Number(reportData.patientId),
+        reportedBy: reportData.reportedBy,
+        date: reportData.date,
+        time: reportData.time,
+        conditionUpdate: reportData.conditionUpdate,
+        symptoms: reportData.symptoms,
+        painLevel: reportData.painLevel,
+        notes: reportData.notes,
+        urgency: reportData.urgency,
+      });
+    } catch (error) {
+      console.error('Failed to add nurse report:', error);
+      throw error;
+    }
   };
 
-  const updateNurseReport = (reportId: string, patientId: string, updates: Partial<PatientConditionReport>) => {
-    setNurseReports(prev => ({
-      ...prev,
-      [patientId]: (prev[patientId] || []).map(report =>
-        report.id === reportId ? { ...report, ...updates } : report
-      )
-    }));
+  const updateNurseReport = async (reportId: string, patientId: string, updates: Partial<PatientConditionReport>): Promise<void> => {
+    try {
+      await api.updateNurseReport(Number(reportId), updates);
+    } catch (error) {
+      console.error('Failed to update nurse report:', error);
+      throw error;
+    }
   };
 
-  const getPatientNurseReports = (patientId: string): PatientConditionReport[] => {
-    return nurseReports[patientId] || [];
+  const getPatientNurseReports = async (patientId: string): Promise<PatientConditionReport[]> => {
+    try {
+      const reports = await api.getNurseReportsByPatient(Number(patientId));
+      // Convert API format to legacy format
+      return reports.map(report => ({
+        id: report.id.toString(),
+        patientId: report.patientId.toString(),
+        reportedBy: report.reportedBy,
+        date: report.date,
+        time: report.time,
+        conditionUpdate: report.conditionUpdate,
+        symptoms: report.symptoms,
+        painLevel: report.painLevel,
+        notes: report.notes || '',
+        urgency: report.urgency,
+        reviewedByDoctor: report.reviewedByDoctor,
+        doctorResponse: report.doctorResponse,
+      }));
+    } catch (error) {
+      console.error('Failed to get patient nurse reports:', error);
+      return [];
+    }
   };
 
-  const getUnreviewedReports = (patientId: string): PatientConditionReport[] => {
-    return getPatientNurseReports(patientId).filter(report => !report.reviewedByDoctor);
+  const getUnreviewedReports = async (patientId: string): Promise<PatientConditionReport[]> => {
+    try {
+      const reports = await api.getUnreviewedReportsByPatient(Number(patientId));
+      // Convert API format to legacy format
+      return reports.map(report => ({
+        id: report.id.toString(),
+        patientId: report.patientId.toString(),
+        reportedBy: report.reportedBy,
+        date: report.date,
+        time: report.time,
+        conditionUpdate: report.conditionUpdate,
+        symptoms: report.symptoms,
+        painLevel: report.painLevel,
+        notes: report.notes || '',
+        urgency: report.urgency,
+        reviewedByDoctor: report.reviewedByDoctor,
+        doctorResponse: report.doctorResponse,
+      }));
+    } catch (error) {
+      console.error('Failed to get unreviewed reports:', error);
+      return [];
+    }
   };
 
-  // Patient condition functions
-  const updatePatientCondition = (patientId: string, condition: any) => {
-    setPatientConditions(prev => ({
-      ...prev,
-      [patientId]: condition
-    }));
+  const updatePatientCondition = async (patientId: string, condition: any): Promise<void> => {
+    try {
+      await api.createPatientCondition({
+        patientId: Number(patientId),
+        assessedBy: condition.assessedBy || 'Doctor',
+        date: condition.date,
+        condition: condition.condition,
+        notes: condition.notes,
+        medications: condition.medications,
+        vitals: condition.vitals,
+        dischargeRecommendation: condition.dischargeRecommendation,
+        dischargeNotes: condition.dischargeNotes,
+      });
+    } catch (error) {
+      console.error('Failed to update patient condition:', error);
+      throw error;
+    }
   };
 
-  const getPatientCondition = (patientId: string) => {
-    return patientConditions[patientId] || null;
+  const getPatientCondition = async (patientId: string): Promise<any> => {
+    try {
+      const condition = await api.getLatestPatientCondition(Number(patientId));
+      return condition;
+    } catch (error) {
+      console.error('Failed to get patient condition:', error);
+      return null;
+    }
   };
 
-  const isPatientReadyForDischarge = (patientId: string): boolean => {
-    const condition = patientConditions[patientId];
-    
-    // Only show discharge button if doctor has explicitly set discharge recommendation
-    return condition?.dischargeRecommendation === 'discharge';
+  const isPatientReadyForDischarge = async (patientId: string): Promise<boolean> => {
+    try {
+      const condition = await api.getLatestPatientCondition(Number(patientId));
+      return condition?.dischargeRecommendation === 'discharge';
+    } catch (error) {
+      console.error('Failed to check discharge status:', error);
+      return false;
+    }
   };
 
   const dischargePatient = async (patientId: string): Promise<void> => {
@@ -391,6 +408,119 @@ export function DataProvider({ children }: { children: ReactNode }) {
       ));
     } catch (error) {
       console.error('Failed to discharge patient:', error);
+      throw error;
+    }
+  };
+
+  // New API-based functions
+  // Vital Signs
+  const getVitalSignsByPatient = async (patientId: number, date?: string): Promise<VitalSigns[]> => {
+    try {
+      return await api.getVitalSignsByPatient(patientId, date);
+    } catch (error) {
+      console.error('Failed to get vital signs:', error);
+      throw error;
+    }
+  };
+
+  const createVitalSigns = async (vitalData: any): Promise<VitalSigns> => {
+    try {
+      return await api.createVitalSigns(vitalData);
+    } catch (error) {
+      console.error('Failed to create vital signs:', error);
+      throw error;
+    }
+  };
+
+  // Nurse Reports (API-based)
+  const getNurseReportsByPatientAPI = async (patientId: number): Promise<NurseReport[]> => {
+    try {
+      return await api.getNurseReportsByPatient(patientId);
+    } catch (error) {
+      console.error('Failed to get nurse reports:', error);
+      throw error;
+    }
+  };
+
+  const getUnreviewedReportsByPatientAPI = async (patientId: number): Promise<NurseReport[]> => {
+    try {
+      return await api.getUnreviewedReportsByPatient(patientId);
+    } catch (error) {
+      console.error('Failed to get unreviewed reports:', error);
+      throw error;
+    }
+  };
+
+  const createNurseReportAPI = async (reportData: any): Promise<NurseReport> => {
+    try {
+      return await api.createNurseReport(reportData);
+    } catch (error) {
+      console.error('Failed to create nurse report:', error);
+      throw error;
+    }
+  };
+
+  const reviewNurseReportAPI = async (id: number, doctorResponse: string): Promise<NurseReport> => {
+    try {
+      return await api.reviewNurseReport(id, doctorResponse);
+    } catch (error) {
+      console.error('Failed to review nurse report:', error);
+      throw error;
+    }
+  };
+
+  // Patient Conditions (API-based)
+  const getLatestPatientCondition = async (patientId: number): Promise<PatientCondition | null> => {
+    try {
+      return await api.getLatestPatientCondition(patientId);
+    } catch (error) {
+      console.error('Failed to get patient condition:', error);
+      throw error;
+    }
+  };
+
+  const createPatientConditionAPI = async (conditionData: any): Promise<PatientCondition> => {
+    try {
+      return await api.createPatientCondition(conditionData);
+    } catch (error) {
+      console.error('Failed to create patient condition:', error);
+      throw error;
+    }
+  };
+
+  // Medications
+  const getMedicationsByPatient = async (patientId: number): Promise<Medication[]> => {
+    try {
+      return await api.getMedicationsByPatient(patientId);
+    } catch (error) {
+      console.error('Failed to get medications:', error);
+      throw error;
+    }
+  };
+
+  const createMedicationAPI = async (medicationData: any): Promise<Medication> => {
+    try {
+      return await api.createMedication(medicationData);
+    } catch (error) {
+      console.error('Failed to create medication:', error);
+      throw error;
+    }
+  };
+
+  const getMedicationAdministrationsByPatient = async (patientId: number, date?: string): Promise<MedicationAdministration[]> => {
+    try {
+      return await api.getMedicationAdministrationsByPatient(patientId, date);
+    } catch (error) {
+      console.error('Failed to get medication administrations:', error);
+      throw error;
+    }
+  };
+
+  const administerMedicationAPI = async (id: number, administeredBy: string, notes?: string): Promise<MedicationAdministration> => {
+    try {
+      return await api.administerMedication(id, administeredBy, notes);
+    } catch (error) {
+      console.error('Failed to administer medication:', error);
       throw error;
     }
   };
@@ -427,6 +557,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
       getPatientCondition,
       isPatientReadyForDischarge,
       dischargePatient,
+      // New API-based functions
+      getVitalSignsByPatient,
+      createVitalSigns,
+      getNurseReportsByPatientAPI,
+      getUnreviewedReportsByPatientAPI,
+      createNurseReportAPI,
+      reviewNurseReportAPI,
+      getLatestPatientCondition,
+      createPatientConditionAPI,
+      getMedicationsByPatient,
+      createMedicationAPI,
+      getMedicationAdministrationsByPatient,
+      administerMedicationAPI,
     }}>
       {children}
     </DataContext.Provider>
