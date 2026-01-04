@@ -463,12 +463,27 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const dischargePatient = async (patientId: string) => {
-    // Update patient status to discharged
-    setPatients(prev => prev.map(patient => 
-      patient.id.toString() === patientId 
-        ? { ...patient, status: 'discharged' as const }
-        : patient
-    ));
+    try {
+      // Use the dedicated discharge API endpoint
+      const dischargeData = {
+        dischargeDate: new Date().toISOString().split('T')[0],
+        dischargedBy: 'System', // You can update this to use actual user info
+      };
+      
+      const response = await api.dischargePatient(Number(patientId), dischargeData);
+      
+      // Update local state with the response data
+      setPatients(prev => prev.map(patient => 
+        patient.id.toString() === patientId 
+          ? { ...patient, status: 'discharged' as const, dischargeStatus: 'ready' }
+          : patient
+      ));
+      
+      return response;
+    } catch (error) {
+      console.error('Failed to discharge patient:', error);
+      throw error;
+    }
   };
 
   return (

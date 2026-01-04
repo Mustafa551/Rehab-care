@@ -341,6 +341,22 @@ export const api = {
       method: 'DELETE',
     });
   },
+
+  // Discharge patient
+  dischargePatient: async (
+    patientId: number,
+    dischargeData?: {
+      dischargeNotes?: string;
+      finalBillAmount?: number;
+      dischargeDate?: string;
+      dischargedBy?: string;
+    }
+  ) => {
+    return apiRequest(`/patients/${patientId}/discharge`, {
+      method: 'POST',
+      body: JSON.stringify(dischargeData || {}),
+    });
+  },
 };
 
 export { ApiError };
