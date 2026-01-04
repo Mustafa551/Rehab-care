@@ -8,6 +8,21 @@ import {
 import { api, ApiError } from '@/lib/api';
 import { format } from 'date-fns';
 
+interface PatientConditionReport {
+  id: string;
+  patientId: string;
+  reportedBy: string;
+  date: string;
+  time: string;
+  conditionUpdate: string;
+  symptoms: string[];
+  painLevel?: number;
+  notes: string;
+  urgency: 'low' | 'medium' | 'high';
+  reviewedByDoctor: boolean;
+  doctorResponse?: string;
+}
+
 interface DataContextType {
   patients: Patient[];
   staffMembers: StaffMember[];
@@ -15,6 +30,7 @@ interface DataContextType {
   doctorNotes: DoctorNote[];
   rehabProgress: RehabProgress[];
   assignments: StaffAssignment[];
+  nurseReports: Record<string, PatientConditionReport[]>;
   currentDate: string;
   isLoadingStaff: boolean;
   isLoadingPatients: boolean;
@@ -37,6 +53,11 @@ interface DataContextType {
   refreshStaff: () => Promise<void>;
   refreshPatients: () => Promise<void>;
   refreshAssignments: () => Promise<void>;
+  // Nurse reports actions
+  addNurseReport: (report: Omit<PatientConditionReport, 'id' | 'reviewedByDoctor'>) => void;
+  updateNurseReport: (reportId: string, patientId: string, updates: Partial<PatientConditionReport>) => void;
+  getPatientNurseReports: (patientId: string) => PatientConditionReport[];
+  getUnreviewedReports: (patientId: string) => PatientConditionReport[];
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -48,6 +69,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [doctorNotes, setDoctorNotes] = useState<DoctorNote[]>(initialNotes);
   const [rehabProgress, setRehabProgress] = useState<RehabProgress[]>(initialProgress);
   const [assignments, setAssignments] = useState<StaffAssignment[]>([]);
+  const [nurseReports, setNurseReports] = useState<Record<string, PatientConditionReport[]>>({});
   const [currentDate, setCurrentDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [isLoadingStaff, setIsLoadingStaff] = useState(true);
   const [isLoadingPatients, setIsLoadingPatients] = useState(true);
@@ -60,6 +82,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     loadStaff();
     loadPatients();
+    initializeMockNurseReports();
   }, []);
 
   // Load assignments when staff loads or date changes
@@ -172,6 +195,44 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const refreshAssignments = async () => {
     await loadAssignments();
+  };
+
+  // Initialize some mock nurse reports for demonstration
+  const initializeMockNurseReports = () => {
+    // This will be called once on app load to create some sample reports
+    const mockReports: Record<string, PatientConditionReport[]> = {
+      '1': [
+        {
+          id: 'report-1-1',
+          patientId: '1',
+          reportedBy: 'Nurse Aisha',
+          date: new Date().toISOString().split('T')[0],
+          time: '14:30',
+          conditionUpdate: 'Patient showing signs of improvement. More alert and responsive during medication time.',
+          symptoms: ['Fatigue'],
+          painLevel: 3,
+          notes: 'Patient requested additional pillow for comfort. Appetite has improved.',
+          urgency: 'low',
+          reviewedByDoctor: false
+        },
+        {
+          id: 'report-1-2',
+          patientId: '1',
+          reportedBy: 'Nurse Khadija',
+          date: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          time: '09:15',
+          conditionUpdate: 'Patient complained of increased discomfort during morning routine. Vital signs stable but patient seems restless.',
+          symptoms: ['Pain', 'Anxiety', 'Difficulty sleeping'],
+          painLevel: 6,
+          notes: 'Patient mentioned difficulty sleeping last night. Requesting pain medication review.',
+          urgency: 'medium',
+          reviewedByDoctor: true,
+          doctorResponse: 'Adjusted pain medication dosage. Monitor for next 24 hours and report any changes.'
+        }
+      ]
+    };
+    
+    setNurseReports(mockReports);
   };
 
   const addPatient = async (patientData: Omit<Patient, 'id' | 'createdAt' | 'updatedAt'>) => {
@@ -314,6 +375,40 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return staffMembers.find(s => s.id.toString() === patient.assignedDoctorId?.toString()) || null;
   };
 
+  // Nurse reports functions
+  const addNurseReport = (reportData: Omit<PatientConditionReport, 'id' | 'reviewedByDoctor'>) => {
+    const newReport: PatientConditionReport = {
+      ...reportData,
+      id: `report-${Date.now()}`,
+      reviewedByDoctor: false
+    };
+
+    setNurseReports(prev => ({
+      ...prev,
+      [reportData.patientId]: [
+        ...(prev[reportData.patientId] || []),
+        newReport
+      ]
+    }));
+  };
+
+  const updateNurseReport = (reportId: string, patientId: string, updates: Partial<PatientConditionReport>) => {
+    setNurseReports(prev => ({
+      ...prev,
+      [patientId]: (prev[patientId] || []).map(report =>
+        report.id === reportId ? { ...report, ...updates } : report
+      )
+    }));
+  };
+
+  const getPatientNurseReports = (patientId: string): PatientConditionReport[] => {
+    return nurseReports[patientId] || [];
+  };
+
+  const getUnreviewedReports = (patientId: string): PatientConditionReport[] => {
+    return getPatientNurseReports(patientId).filter(report => !report.reviewedByDoctor);
+  };
+
   return (
     <DataContext.Provider value={{
       patients,
@@ -322,6 +417,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       doctorNotes,
       rehabProgress,
       assignments,
+      nurseReports,
       currentDate,
       isLoadingStaff,
       isLoadingPatients,
@@ -342,6 +438,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       refreshStaff,
       refreshPatients,
       refreshAssignments,
+      addNurseReport,
+      updateNurseReport,
+      getPatientNurseReports,
+      getUnreviewedReports,
     }}>
       {children}
     </DataContext.Provider>

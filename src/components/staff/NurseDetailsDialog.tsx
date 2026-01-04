@@ -77,7 +77,7 @@ interface MedicationAdministration {
 }
 
 export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) {
-  const { patients, getStaffPatients } = useData();
+  const { patients, getStaffPatients, addNurseReport, getPatientNurseReports, getUnreviewedReports } = useData();
   const [open, setOpen] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [activeTab, setActiveTab] = useState('patients');
@@ -89,7 +89,6 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
   // Mock data - in real app, this would come from API
   const [vitalSigns, setVitalSigns] = useState<Record<string, VitalSigns[]>>({});
   const [medicationAdministrations, setMedicationAdministrations] = useState<Record<string, MedicationAdministration[]>>({});
-  const [conditionReports, setConditionReports] = useState<Record<string, PatientConditionReport[]>>({});
   
   const [vitalForm, setVitalForm] = useState<Omit<VitalSigns, 'id' | 'patientId' | 'recordedBy'>>({
     date: new Date().toISOString().split('T')[0],
@@ -196,21 +195,12 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
 
     setIsUpdating(true);
     try {
-      const newReport: PatientConditionReport = {
-        id: Date.now().toString(),
+      // Add the report using the shared context
+      addNurseReport({
         patientId: selectedPatient.id.toString(),
         reportedBy: nurse.name,
-        reviewedByDoctor: false,
         ...conditionForm
-      };
-
-      setConditionReports(prev => ({
-        ...prev,
-        [selectedPatient.id.toString()]: [
-          ...(prev[selectedPatient.id.toString()] || []),
-          newReport
-        ]
-      }));
+      });
       
       // Reset form
       setConditionForm({
@@ -319,13 +309,6 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
     return mockMeds;
   };
 
-  const getPatientConditionReports = (patient: Patient) => {
-    return conditionReports[patient.id.toString()] || [];
-  };
-
-  const getUnreviewedReports = (patient: Patient) => {
-    return getPatientConditionReports(patient).filter(report => !report.reviewedByDoctor);
-  };
   const getPatientVitals = (patient: Patient) => {
     return vitalSigns[patient.id.toString()] || [];
   };
@@ -863,12 +846,12 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-4">
-                        {getPatientConditionReports(selectedPatient).length === 0 ? (
+                        {getPatientNurseReports(selectedPatient.id.toString()).length === 0 ? (
                           <p className="text-muted-foreground text-center py-8">
                             No condition reports submitted yet.
                           </p>
                         ) : (
-                          getPatientConditionReports(selectedPatient)
+                          getPatientNurseReports(selectedPatient.id.toString())
                             .sort((a, b) => `${b.date}T${b.time}`.localeCompare(`${a.date}T${a.time}`))
                             .map((report) => (
                               <Card key={report.id} className="p-4">
@@ -1113,7 +1096,7 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
                 <CardContent>
                   <div className="text-3xl font-bold">
                     {nursePatients.reduce((total, patient) => 
-                      total + getUnreviewedReports(patient).length, 0
+                      total + getUnreviewedReports(patient.id.toString()).length, 0
                     )}
                   </div>
                   <p className="text-muted-foreground">Pending doctor review</p>
@@ -1133,7 +1116,7 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
                     const todayVitals = getTodayVitals(patient);
                     const medications = getMockMedications(patient);
                     const administeredMeds = medications.filter(m => m.administered);
-                    const unreviewedReports = getUnreviewedReports(patient);
+                    const unreviewedReports = getUnreviewedReports(patient.id.toString());
                     
                     return (
                       <div key={patient.id} className="flex items-center gap-3 p-3 rounded-lg border">

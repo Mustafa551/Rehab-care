@@ -62,8 +62,23 @@ interface PatientConditionUpdate {
   dischargeNotes?: string;
 }
 
+interface PatientConditionReport {
+  id: string;
+  patientId: string;
+  reportedBy: string;
+  date: string;
+  time: string;
+  conditionUpdate: string;
+  symptoms: string[];
+  painLevel?: number;
+  notes: string;
+  urgency: 'low' | 'medium' | 'high';
+  reviewedByDoctor: boolean;
+  doctorResponse?: string;
+}
+
 export function DoctorDetailsDialog({ doctor, trigger }: DoctorDetailsDialogProps) {
-  const { patients, getStaffPatients } = useData();
+  const { patients, getStaffPatients, getPatientNurseReports, getUnreviewedReports, updateNurseReport } = useData();
   const [open, setOpen] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [activeTab, setActiveTab] = useState('patients');
@@ -76,6 +91,7 @@ export function DoctorDetailsDialog({ doctor, trigger }: DoctorDetailsDialogProp
 
   // Mock patient condition data - in real app, this would come from API
   const [patientConditions, setPatientConditions] = useState<Record<string, PatientConditionUpdate>>({});
+  const [doctorResponses, setDoctorResponses] = useState<Record<string, string>>({});
   
   const [conditionForm, setConditionForm] = useState<PatientConditionUpdate>({
     date: new Date().toISOString().split('T')[0],
@@ -106,6 +122,26 @@ export function DoctorDetailsDialog({ doctor, trigger }: DoctorDetailsDialogProp
         dischargeNotes: ''
       });
     }
+  };
+
+  const handleReviewReport = async (reportId: string, response: string) => {
+    if (!selectedPatient) return;
+
+    const patientId = selectedPatient.id.toString();
+    
+    // Update the report using the shared context
+    updateNurseReport(reportId, patientId, {
+      reviewedByDoctor: true,
+      doctorResponse: response
+    });
+
+    // Clear the response input
+    setDoctorResponses(prev => ({
+      ...prev,
+      [reportId]: ''
+    }));
+
+    toast.success('Report reviewed and response sent to nursing staff');
   };
 
   const handleAddMedication = () => {
@@ -335,8 +371,126 @@ export function DoctorDetailsDialog({ doctor, trigger }: DoctorDetailsDialogProp
                 </Card>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Condition Update Form */}
+                  {/* Left Column */}
                   <div className="space-y-6">
+                    {/* Nurse Reports Section */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <AlertCircle className="h-5 w-5" />
+                          Nurse Condition Reports
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        {getPatientNurseReports(selectedPatient.id.toString()).length === 0 ? (
+                          <p className="text-muted-foreground text-center py-4">
+                            No condition reports from nursing staff yet.
+                          </p>
+                        ) : (
+                          <div className="space-y-4 max-h-96 overflow-y-auto">
+                            {getPatientNurseReports(selectedPatient.id.toString())
+                              .sort((a, b) => `${b.date}T${b.time}`.localeCompare(`${a.date}T${a.time}`))
+                              .map((report) => (
+                                <Card key={report.id} className={`p-4 ${!report.reviewedByDoctor ? 'border-orange-200 bg-orange-50' : ''}`}>
+                                  <div className="space-y-3">
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-medium text-sm">
+                                          {new Date(report.date).toLocaleDateString()} {report.time}
+                                        </span>
+                                        <Badge 
+                                          variant={
+                                            report.urgency === 'high' ? 'destructive' :
+                                            report.urgency === 'medium' ? 'default' : 'secondary'
+                                          }
+                                          className="text-xs"
+                                        >
+                                          {report.urgency} urgency
+                                        </Badge>
+                                      </div>
+                                      <Badge variant={report.reviewedByDoctor ? 'default' : 'outline'}>
+                                        {report.reviewedByDoctor ? 'Reviewed' : 'Needs Review'}
+                                      </Badge>
+                                    </div>
+                                    
+                                    <div>
+                                      <p className="text-sm font-medium">Condition Update:</p>
+                                      <p className="text-sm text-muted-foreground">{report.conditionUpdate}</p>
+                                    </div>
+
+                                    {report.symptoms.length > 0 && (
+                                      <div>
+                                        <p className="text-sm font-medium">Symptoms:</p>
+                                        <div className="flex flex-wrap gap-1 mt-1">
+                                          {report.symptoms.map(symptom => (
+                                            <Badge key={symptom} variant="outline" className="text-xs">
+                                              {symptom}
+                                            </Badge>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {report.painLevel !== undefined && report.painLevel > 0 && (
+                                      <div>
+                                        <p className="text-sm font-medium">Pain Level: {report.painLevel}/10</p>
+                                      </div>
+                                    )}
+
+                                    {report.notes && (
+                                      <div>
+                                        <p className="text-sm font-medium">Notes:</p>
+                                        <p className="text-sm text-muted-foreground italic">{report.notes}</p>
+                                      </div>
+                                    )}
+
+                                    <div className="text-xs text-muted-foreground">
+                                      Reported by {report.reportedBy}
+                                    </div>
+
+                                    {report.doctorResponse && (
+                                      <div className="mt-3 p-3 bg-blue-50 rounded-lg border-l-4 border-blue-400">
+                                        <p className="text-sm font-medium text-blue-900">Your Response:</p>
+                                        <p className="text-sm text-blue-800">{report.doctorResponse}</p>
+                                      </div>
+                                    )}
+
+                                    {!report.reviewedByDoctor && (
+                                      <div className="space-y-2 pt-2 border-t">
+                                        <Label htmlFor={`response-${report.id}`} className="text-sm font-medium">
+                                          Doctor Response:
+                                        </Label>
+                                        <Textarea
+                                          id={`response-${report.id}`}
+                                          value={doctorResponses[report.id] || ''}
+                                          onChange={(e) => setDoctorResponses(prev => ({
+                                            ...prev,
+                                            [report.id]: e.target.value
+                                          }))}
+                                          placeholder="Provide instructions, medication changes, or follow-up notes..."
+                                          rows={2}
+                                          className="text-sm"
+                                        />
+                                        <Button
+                                          onClick={() => handleReviewReport(report.id, doctorResponses[report.id] || '')}
+                                          size="sm"
+                                          disabled={!doctorResponses[report.id]?.trim()}
+                                          className="w-full"
+                                        >
+                                          <CheckCircle className="h-4 w-4 mr-2" />
+                                          Review & Respond
+                                        </Button>
+                                      </div>
+                                    )}
+                                  </div>
+                                </Card>
+                              ))}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    {/* Condition Update Form */}
                     <Card>
                       <CardHeader>
                         <CardTitle className="flex items-center gap-2">
@@ -437,7 +591,7 @@ export function DoctorDetailsDialog({ doctor, trigger }: DoctorDetailsDialogProp
                     </Card>
                   </div>
 
-                  {/* Medications and Discharge */}
+                  {/* Right Column */}
                   <div className="space-y-6">
                     {/* Medications */}
                     <Card>
@@ -589,7 +743,7 @@ export function DoctorDetailsDialog({ doctor, trigger }: DoctorDetailsDialogProp
 
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -632,48 +786,124 @@ export function DoctorDetailsDialog({ doctor, trigger }: DoctorDetailsDialogProp
                   <p className="text-muted-foreground">Patients need assessment</p>
                 </CardContent>
               </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    Nurse Reports
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold">
+                    {doctorPatients.reduce((total, patient) => 
+                      total + getUnreviewedReports(patient.id.toString()).length, 0
+                    )}
+                  </div>
+                  <p className="text-muted-foreground">Pending review</p>
+                </CardContent>
+              </Card>
             </div>
 
             {/* Recent Activity */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Recent Activity</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {Object.entries(patientConditions)
-                    .sort(([,a], [,b]) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                    .slice(0, 5)
-                    .map(([patientId, condition]) => {
-                      const patient = doctorPatients.find(p => p.id.toString() === patientId);
-                      if (!patient) return null;
-                      
-                      return (
-                        <div key={patientId} className="flex items-center gap-3 p-3 rounded-lg border">
-                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold text-sm">
-                            {patient.name.split(' ').map(n => n[0]).join('')}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Recent Patient Updates</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {Object.entries(patientConditions)
+                      .sort(([,a], [,b]) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                      .slice(0, 5)
+                      .map(([patientId, condition]) => {
+                        const patient = doctorPatients.find(p => p.id.toString() === patientId);
+                        if (!patient) return null;
+                        
+                        return (
+                          <div key={patientId} className="flex items-center gap-3 p-3 rounded-lg border">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold text-sm">
+                              {patient.name.split(' ').map(n => n[0]).join('')}
+                            </div>
+                            <div className="flex-1">
+                              <p className="font-medium">{patient.name}</p>
+                              <p className="text-sm text-muted-foreground">
+                                Condition updated on {new Date(condition.date).toLocaleDateString()}
+                              </p>
+                            </div>
+                            <Badge variant={condition.dischargeRecommendation === 'discharge' ? 'default' : 'secondary'}>
+                              {condition.dischargeRecommendation === 'discharge' ? 'Discharge Ready' : 'In Treatment'}
+                            </Badge>
+                          </div>
+                        );
+                      })}
+                    
+                    {Object.keys(patientConditions).length === 0 && (
+                      <p className="text-muted-foreground text-center py-8">
+                        No recent activity. Start by assessing your patients.
+                      </p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <AlertCircle className="h-5 w-5" />
+                    Nurse Reports Needing Review
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {doctorPatients
+                      .flatMap(patient => 
+                        getUnreviewedReports(patient.id.toString()).map(report => ({ ...report, patient }))
+                      )
+                      .sort((a, b) => {
+                        // Sort by urgency first (high -> medium -> low), then by date/time
+                        const urgencyOrder = { high: 3, medium: 2, low: 1 };
+                        if (urgencyOrder[a.urgency] !== urgencyOrder[b.urgency]) {
+                          return urgencyOrder[b.urgency] - urgencyOrder[a.urgency];
+                        }
+                        return `${b.date}T${b.time}`.localeCompare(`${a.date}T${a.time}`);
+                      })
+                      .slice(0, 5)
+                      .map((report) => (
+                        <div key={report.id} className="flex items-center gap-3 p-3 rounded-lg border border-orange-200 bg-orange-50">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-100 text-orange-700 font-semibold text-sm">
+                            {report.patient.name.split(' ').map(n => n[0]).join('')}
                           </div>
                           <div className="flex-1">
-                            <p className="font-medium">{patient.name}</p>
-                            <p className="text-sm text-muted-foreground">
-                              Condition updated on {new Date(condition.date).toLocaleDateString()}
+                            <p className="font-medium">{report.patient.name}</p>
+                            <p className="text-sm text-muted-foreground line-clamp-1">
+                              {report.conditionUpdate}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(report.date).toLocaleDateString()} {report.time} by {report.reportedBy}
                             </p>
                           </div>
-                          <Badge variant={condition.dischargeRecommendation === 'discharge' ? 'default' : 'secondary'}>
-                            {condition.dischargeRecommendation === 'discharge' ? 'Discharge Ready' : 'In Treatment'}
+                          <Badge 
+                            variant={
+                              report.urgency === 'high' ? 'destructive' :
+                              report.urgency === 'medium' ? 'default' : 'secondary'
+                            }
+                            className="text-xs"
+                          >
+                            {report.urgency}
                           </Badge>
                         </div>
-                      );
-                    })}
-                  
-                  {Object.keys(patientConditions).length === 0 && (
-                    <p className="text-muted-foreground text-center py-8">
-                      No recent activity. Start by assessing your patients.
-                    </p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+                      ))}
+                    
+                    {doctorPatients.every(p => getUnreviewedReports(p.id.toString()).length === 0) && (
+                      <p className="text-muted-foreground text-center py-8">
+                        No pending nurse reports. All reports have been reviewed.
+                      </p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
         </Tabs>
       </DialogContent>
