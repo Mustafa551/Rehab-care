@@ -183,7 +183,7 @@ export function DoctorDetailsDialog({ doctor, trigger }: DoctorDetailsDialogProp
     if (existingCondition) {
       setConditionForm({
         date: existingCondition.date,
-        condition: existingCondition.condition || patient.medicalCondition || '',
+        condition: existingCondition.condition || patient.medicalCondition || patient.condition || 'General assessment needed',
         notes: existingCondition.notes || '',
         medications: existingCondition.medications || [],
         vitals: existingCondition.vitals || {},
@@ -193,7 +193,7 @@ export function DoctorDetailsDialog({ doctor, trigger }: DoctorDetailsDialogProp
     } else {
       setConditionForm({
         date: new Date().toISOString().split('T')[0],
-        condition: patient.medicalCondition || '',
+        condition: patient.medicalCondition || patient.condition || 'General assessment needed',
         notes: '',
         medications: [],
         vitals: {},
@@ -287,6 +287,17 @@ export function DoctorDetailsDialog({ doctor, trigger }: DoctorDetailsDialogProp
   const handleSaveCondition = async () => {
     if (!selectedPatient) return;
     
+    // Validate required fields on client side
+    if (!conditionForm.condition.trim()) {
+      toast.error('Please describe the patient\'s current condition');
+      return;
+    }
+    
+    if (!conditionForm.date) {
+      toast.error('Please select an assessment date');
+      return;
+    }
+    
     setIsUpdating(true);
     try {
       // Create patient condition using API
@@ -294,13 +305,15 @@ export function DoctorDetailsDialog({ doctor, trigger }: DoctorDetailsDialogProp
         patientId: Number(selectedPatient.id),
         assessedBy: doctor.name,
         date: conditionForm.date,
-        condition: conditionForm.condition,
-        notes: conditionForm.notes,
-        medications: conditionForm.medications,
-        vitals: conditionForm.vitals,
-        dischargeRecommendation: conditionForm.dischargeRecommendation,
-        dischargeNotes: conditionForm.dischargeNotes,
+        condition: conditionForm.condition.trim(),
+        notes: conditionForm.notes || '',
+        medications: conditionForm.medications || [],
+        vitals: conditionForm.vitals || {},
+        dischargeRecommendation: conditionForm.dischargeRecommendation || 'continue',
+        dischargeNotes: conditionForm.dischargeNotes || '',
       };
+
+      console.log('Sending condition data:', conditionData); // Debug log
 
       const savedCondition = await createPatientConditionAPI(conditionData);
       
@@ -316,6 +329,7 @@ export function DoctorDetailsDialog({ doctor, trigger }: DoctorDetailsDialogProp
         toast.info('Discharge recommendation noted. Patient is now ready for discharge.');
       }
     } catch (error) {
+      console.error('Failed to update patient condition:', error);
       toast.error('Failed to update patient condition');
     } finally {
       setIsUpdating(false);
@@ -633,13 +647,14 @@ export function DoctorDetailsDialog({ doctor, trigger }: DoctorDetailsDialogProp
                         </div>
 
                         <div className="space-y-2">
-                          <Label htmlFor="condition">Current Condition</Label>
+                          <Label htmlFor="condition">Current Condition *</Label>
                           <Textarea
                             id="condition"
                             value={conditionForm.condition}
                             onChange={(e) => setConditionForm(prev => ({ ...prev, condition: e.target.value }))}
                             placeholder="Describe the patient's current medical condition..."
                             rows={3}
+                            required
                           />
                         </div>
 

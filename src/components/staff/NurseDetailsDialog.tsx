@@ -161,16 +161,41 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
   // Load vital signs for all patients on mount
   useEffect(() => {
     const loadPatientData = async () => {
-      for (const patient of nursePatients) {
-        await getPatientVitals(patient);
-        await getPatientMedications(patient);
-        await getPatientReports(patient);
+      if (!open || nursePatients.length === 0) return;
+      
+      console.log('Loading data for', nursePatients.length, 'patients');
+      
+      try {
+        for (const patient of nursePatients) {
+          console.log('Loading data for patient:', patient.name);
+          
+          // Load vitals
+          try {
+            await getPatientVitals(patient);
+          } catch (error) {
+            console.error(`Failed to load vitals for ${patient.name}:`, error);
+          }
+          
+          // Load medications
+          try {
+            await getPatientMedications(patient);
+          } catch (error) {
+            console.error(`Failed to load medications for ${patient.name}:`, error);
+          }
+          
+          // Load reports
+          try {
+            await getPatientReports(patient);
+          } catch (error) {
+            console.error(`Failed to load reports for ${patient.name}:`, error);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading patient data:', error);
       }
     };
     
-    if (nursePatients.length > 0 && open) {
-      loadPatientData();
-    }
+    loadPatientData();
   }, [nursePatients.length, open]); // Only depend on length and open state
 
   const handleSaveVitals = async () => {
@@ -309,7 +334,10 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
   const getPatientVitals = async (patient: Patient): Promise<VitalSigns[]> => {
     try {
       const patientId = Number(patient.id);
+      console.log(`Loading vitals for patient ${patient.name} (ID: ${patientId})`);
+      
       const vitals = await getVitalSignsByPatient(patientId);
+      console.log(`Found ${vitals.length} vital signs for ${patient.name}:`, vitals);
       
       // Convert API format to component format
       const formattedVitals = vitals.map(vital => ({
@@ -348,7 +376,10 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
     try {
       const patientId = Number(patient.id);
       const today = new Date().toISOString().split('T')[0];
+      console.log(`Loading medications for patient ${patient.name} (ID: ${patientId}) for date: ${today}`);
+      
       const administrations = await getMedicationAdministrationsByPatient(patientId, today);
+      console.log(`Found ${administrations.length} medication administrations for ${patient.name}:`, administrations);
       
       setMedicationAdministrationsCache(prev => ({
         ...prev,
@@ -693,40 +724,47 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-4">
-                        {(vitalSignsCache[selectedPatient.id.toString()] || [])
-                          .filter(vital => vital.date === new Date().toISOString().split('T')[0])
-                          .length === 0 ? (
-                          <p className="text-muted-foreground text-center py-8">
-                            No vital signs recorded today.
-                          </p>
-                        ) : (
-                          (vitalSignsCache[selectedPatient.id.toString()] || [])
+                        {(() => {
+                          const todayVitals = (vitalSignsCache[selectedPatient.id.toString()] || [])
                             .filter(vital => vital.date === new Date().toISOString().split('T')[0])
-                            .sort((a, b) => `${b.date}T${b.time}`.localeCompare(`${a.date}T${a.time}`))
-                            .map((vital) => (
-                              <Card key={vital.id} className="p-4">
-                                <div className="space-y-2">
-                                  <div className="flex items-center justify-between">
-                                    <span className="font-medium">{vital.time}</span>
-                                    <Badge variant="outline">
-                                      By {vital.recordedBy}
-                                    </Badge>
-                                  </div>
-                                  <div className="grid grid-cols-2 gap-2 text-sm">
-                                    <div>BP: <span className="font-medium">{vital.bloodPressure}</span></div>
-                                    <div>HR: <span className="font-medium">{vital.heartRate} bpm</span></div>
-                                    <div>Temp: <span className="font-medium">{vital.temperature}°F</span></div>
-                                    <div>O2: <span className="font-medium">{vital.oxygenSaturation}%</span></div>
-                                  </div>
-                                  {vital.notes && (
-                                    <p className="text-sm text-muted-foreground italic">
-                                      {vital.notes}
-                                    </p>
-                                  )}
+                            .sort((a, b) => `${b.date}T${b.time}`.localeCompare(`${a.date}T${a.time}`));
+                          
+                          if (todayVitals.length === 0) {
+                            return (
+                              <div className="text-center py-8">
+                                <Thermometer className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                                <p className="text-muted-foreground">No vital signs recorded today.</p>
+                                <p className="text-sm text-muted-foreground mt-2">
+                                  Use the form on the left to record vital signs.
+                                </p>
+                              </div>
+                            );
+                          }
+                          
+                          return todayVitals.map((vital) => (
+                            <Card key={vital.id} className="p-4">
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <span className="font-medium">{vital.time}</span>
+                                  <Badge variant="outline">
+                                    By {vital.recordedBy}
+                                  </Badge>
                                 </div>
-                              </Card>
-                            ))
-                        )}
+                                <div className="grid grid-cols-2 gap-2 text-sm">
+                                  <div>BP: <span className="font-medium">{vital.bloodPressure}</span></div>
+                                  <div>HR: <span className="font-medium">{vital.heartRate} bpm</span></div>
+                                  <div>Temp: <span className="font-medium">{vital.temperature}°F</span></div>
+                                  <div>O2: <span className="font-medium">{vital.oxygenSaturation || 'N/A'}%</span></div>
+                                </div>
+                                {vital.notes && (
+                                  <p className="text-sm text-muted-foreground italic">
+                                    {vital.notes}
+                                  </p>
+                                )}
+                              </div>
+                            </Card>
+                          ));
+                        })()}
                       </div>
                     </CardContent>
                   </Card>
@@ -1038,51 +1076,61 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      {(medicationAdministrationsCache[selectedPatient.id.toString()] || []).map((medication) => (
-                        <Card key={medication.id} className="p-4">
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-3">
-                                <Checkbox
-                                  checked={medication.administered}
-                                  onCheckedChange={(checked) => 
-                                    handleMedicationAdministration(medication.id, checked as boolean)
-                                  }
-                                />
-                                <div>
-                                  <h4 className="font-semibold">{medication.medicationName}</h4>
-                                  <p className="text-sm text-muted-foreground">
-                                    {medication.dosage} - Scheduled: {medication.scheduledTime}
-                                  </p>
-                                  {medication.notes && (
-                                    <p className="text-xs text-muted-foreground italic">
-                                      {medication.notes}
+                      {(medicationAdministrationsCache[selectedPatient.id.toString()] || []).length === 0 ? (
+                        <div className="text-center py-8">
+                          <Pill className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                          <p className="text-muted-foreground">No medications scheduled for today.</p>
+                          <p className="text-sm text-muted-foreground mt-2">
+                            Medications will appear here once prescribed by the doctor.
+                          </p>
+                        </div>
+                      ) : (
+                        (medicationAdministrationsCache[selectedPatient.id.toString()] || []).map((medication) => (
+                          <Card key={medication.id} className="p-4">
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-3">
+                                  <Checkbox
+                                    checked={medication.administered}
+                                    onCheckedChange={(checked) => 
+                                      handleMedicationAdministration(medication.id, checked as boolean)
+                                    }
+                                  />
+                                  <div>
+                                    <h4 className="font-semibold">{medication.medicationName}</h4>
+                                    <p className="text-sm text-muted-foreground">
+                                      {medication.dosage} - Scheduled: {medication.scheduledTime}
                                     </p>
-                                  )}
+                                    {medication.notes && (
+                                      <p className="text-xs text-muted-foreground italic">
+                                        {medication.notes}
+                                      </p>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                            <div className="text-right">
-                              {medication.administered ? (
-                                <div className="space-y-1">
-                                  <Badge className="bg-green-100 text-green-800">
-                                    <CheckCircle className="h-3 w-3 mr-1" />
-                                    Administered
+                              <div className="text-right">
+                                {medication.administered ? (
+                                  <div className="space-y-1">
+                                    <Badge className="bg-green-100 text-green-800">
+                                      <CheckCircle className="h-3 w-3 mr-1" />
+                                      Administered
+                                    </Badge>
+                                    <p className="text-xs text-muted-foreground">
+                                      {medication.administeredTime} by {medication.administeredBy}
+                                    </p>
+                                  </div>
+                                ) : (
+                                  <Badge variant="outline" className="bg-yellow-50 text-yellow-800">
+                                    <Clock className="h-3 w-3 mr-1" />
+                                    Pending
                                   </Badge>
-                                  <p className="text-xs text-muted-foreground">
-                                    {medication.administeredTime} by {medication.administeredBy}
-                                  </p>
-                                </div>
-                              ) : (
-                                <Badge variant="outline" className="bg-yellow-50 text-yellow-800">
-                                  <Clock className="h-3 w-3 mr-1" />
-                                  Pending
-                                </Badge>
-                              )}
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        </Card>
-                      ))}
+                          </Card>
+                        ))
+                      )}
                     </div>
                   </CardContent>
                 </Card>
