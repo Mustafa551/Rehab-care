@@ -155,7 +155,7 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
         getPatientMedications(patient),
         getPatientReports(patient)
       ]);
-      console.log('Successfully loaded all patient data');
+      console.log('Successfully loaded all patient data including vital signs records');
     } catch (error) {
       console.error('Error loading patient data:', error);
       toast.error('Failed to load patient data');
@@ -489,7 +489,7 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="patients" className="gap-2">
               <Users className="h-4 w-4" />
               My Patients ({nursePatients.length})
@@ -497,6 +497,10 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
             <TabsTrigger value="vitals" disabled={!selectedPatient} className="gap-2">
               <Activity className="h-4 w-4" />
               Vital Signs
+            </TabsTrigger>
+            <TabsTrigger value="records" disabled={!selectedPatient} className="gap-2">
+              <FileText className="h-4 w-4" />
+              Records
             </TabsTrigger>
             <TabsTrigger value="condition" disabled={!selectedPatient} className="gap-2">
               <AlertCircle className="h-4 w-4" />
@@ -824,6 +828,273 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
                   <h3 className="text-lg font-medium text-foreground mb-2">No Patient Selected</h3>
                   <p className="text-muted-foreground text-center">
                     Select a patient from the patients tab to record vital signs.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          {/* Records Tab - View All Vital Signs Records */}
+          <TabsContent value="records" className="space-y-6">
+            {selectedPatient ? (
+              <>
+                {/* Patient Header */}
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold text-lg">
+                          {selectedPatient.name.split(' ').map(n => n[0]).join('')}
+                        </div>
+                        <div>
+                          <h3 className="text-xl font-semibold">{selectedPatient.name}</h3>
+                          <p className="text-sm text-muted-foreground">
+                            Vital Signs Records History
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button 
+                          onClick={() => getPatientVitals(selectedPatient)} 
+                          variant="outline" 
+                          size="sm"
+                          className="gap-2"
+                        >
+                          <Activity className="h-4 w-4" />
+                          Refresh
+                        </Button>
+                        <Button onClick={() => setActiveTab('patients')} variant="outline">
+                          Back to Patients
+                        </Button>
+                      </div>
+                    </div>
+                  </CardHeader>
+                </Card>
+
+                {/* All Vital Signs Records */}
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="flex items-center gap-2">
+                        <FileText className="h-5 w-5" />
+                        All Vital Signs Records
+                      </CardTitle>
+                      <Badge variant="outline">
+                        {(vitalSignsCache[selectedPatient.id.toString()] || []).length} total records
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {(() => {
+                        const allVitals = (vitalSignsCache[selectedPatient.id.toString()] || [])
+                          .sort((a, b) => `${b.date}T${b.time}`.localeCompare(`${a.date}T${a.time}`));
+                        
+                        if (allVitals.length === 0) {
+                          return (
+                            <div className="text-center py-12">
+                              <FileText className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                              <h3 className="text-lg font-medium text-foreground mb-2">No Records Found</h3>
+                              <p className="text-muted-foreground">
+                                No vital signs have been recorded for this patient yet.
+                              </p>
+                              <Button 
+                                onClick={() => setActiveTab('vitals')} 
+                                className="mt-4"
+                                variant="outline"
+                              >
+                                Record Vital Signs
+                              </Button>
+                            </div>
+                          );
+                        }
+                        
+                        return (
+                          <div className="space-y-4 max-h-96 overflow-y-auto">
+                            {allVitals.map((vital, index) => {
+                              const isToday = vital.date === new Date().toISOString().split('T')[0];
+                              const isRecent = index < 3; // Last 3 records
+                              
+                              return (
+                                <Card 
+                                  key={vital.id} 
+                                  className={`p-4 transition-all hover:shadow-md ${
+                                    isToday ? 'border-blue-200 bg-blue-50' : 
+                                    isRecent ? 'border-green-200 bg-green-50' : ''
+                                  }`}
+                                >
+                                  <div className="space-y-3">
+                                    {/* Header with date, time, and badges */}
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center gap-3">
+                                        <div className="flex items-center gap-2">
+                                          <Calendar className="h-4 w-4 text-muted-foreground" />
+                                          <span className="font-medium">
+                                            {new Date(vital.date).toLocaleDateString('en-US', {
+                                              weekday: 'short',
+                                              year: 'numeric',
+                                              month: 'short',
+                                              day: 'numeric'
+                                            })}
+                                          </span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                          <Clock className="h-4 w-4 text-muted-foreground" />
+                                          <span className="font-medium">{vital.time}</span>
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                        {isToday && (
+                                          <Badge className="bg-blue-100 text-blue-800">
+                                            Today
+                                          </Badge>
+                                        )}
+                                        {isRecent && !isToday && (
+                                          <Badge className="bg-green-100 text-green-800">
+                                            Recent
+                                          </Badge>
+                                        )}
+                                        <Badge variant="outline" className="text-xs">
+                                          Record #{allVitals.length - index}
+                                        </Badge>
+                                      </div>
+                                    </div>
+                                    
+                                    {/* Vital Signs Data Grid */}
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                      <div className="space-y-1">
+                                        <Label className="text-xs text-muted-foreground">Blood Pressure</Label>
+                                        <div className="flex items-center gap-2">
+                                          <Heart className="h-4 w-4 text-red-500" />
+                                          <span className="font-medium">{vital.bloodPressure}</span>
+                                        </div>
+                                      </div>
+                                      <div className="space-y-1">
+                                        <Label className="text-xs text-muted-foreground">Heart Rate</Label>
+                                        <div className="flex items-center gap-2">
+                                          <Activity className="h-4 w-4 text-pink-500" />
+                                          <span className="font-medium">{vital.heartRate} bpm</span>
+                                        </div>
+                                      </div>
+                                      <div className="space-y-1">
+                                        <Label className="text-xs text-muted-foreground">Temperature</Label>
+                                        <div className="flex items-center gap-2">
+                                          <Thermometer className="h-4 w-4 text-orange-500" />
+                                          <span className="font-medium">{vital.temperature}°F</span>
+                                        </div>
+                                      </div>
+                                      <div className="space-y-1">
+                                        <Label className="text-xs text-muted-foreground">Oxygen Sat.</Label>
+                                        <div className="flex items-center gap-2">
+                                          <Zap className="h-4 w-4 text-blue-500" />
+                                          <span className="font-medium">
+                                            {vital.oxygenSaturation ? `${vital.oxygenSaturation}%` : 'N/A'}
+                                          </span>
+                                        </div>
+                                      </div>
+                                      {vital.respiratoryRate && (
+                                        <div className="space-y-1 col-span-2">
+                                          <Label className="text-xs text-muted-foreground">Respiratory Rate</Label>
+                                          <div className="flex items-center gap-2">
+                                            <Activity className="h-4 w-4 text-teal-500" />
+                                            <span className="font-medium">{vital.respiratoryRate} breaths/min</span>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                    
+                                    {/* Notes Section */}
+                                    {vital.notes && (
+                                      <div className="space-y-1">
+                                        <Label className="text-xs text-muted-foreground">Notes</Label>
+                                        <p className="text-sm bg-gray-50 p-2 rounded italic">
+                                          "{vital.notes}"
+                                        </p>
+                                      </div>
+                                    )}
+                                    
+                                    {/* Footer with recorder info */}
+                                    <div className="flex items-center justify-between pt-2 border-t border-gray-200">
+                                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                        <User className="h-3 w-3" />
+                                        <span>Recorded by {vital.recordedBy}</span>
+                                      </div>
+                                      <div className="text-xs text-muted-foreground">
+                                        {(() => {
+                                          const recordDate = new Date(`${vital.date}T${vital.time}`);
+                                          const now = new Date();
+                                          const diffHours = Math.floor((now.getTime() - recordDate.getTime()) / (1000 * 60 * 60));
+                                          
+                                          if (diffHours < 1) return 'Just recorded';
+                                          if (diffHours < 24) return `${diffHours} hours ago`;
+                                          const diffDays = Math.floor(diffHours / 24);
+                                          return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+                                        })()}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </Card>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Quick Stats */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium">Today's Records</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">
+                        {(vitalSignsCache[selectedPatient.id.toString()] || [])
+                          .filter(vital => vital.date === new Date().toISOString().split('T')[0]).length}
+                      </div>
+                      <p className="text-xs text-muted-foreground">Vital signs recorded today</p>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium">Total Records</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">
+                        {(vitalSignsCache[selectedPatient.id.toString()] || []).length}
+                      </div>
+                      <p className="text-xs text-muted-foreground">All time vital signs</p>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium">Last Recorded</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-sm font-bold">
+                        {(() => {
+                          const vitals = vitalSignsCache[selectedPatient.id.toString()] || [];
+                          if (vitals.length === 0) return 'Never';
+                          const latest = vitals[0];
+                          return `${latest.date} ${latest.time}`;
+                        })()}
+                      </div>
+                      <p className="text-xs text-muted-foreground">Most recent entry</p>
+                    </CardContent>
+                  </Card>
+                </div>
+              </>
+            ) : (
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <FileText className="h-12 w-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-medium text-foreground mb-2">No Patient Selected</h3>
+                  <p className="text-muted-foreground text-center">
+                    Select a patient from the patients tab to view their vital signs records.
                   </p>
                 </CardContent>
               </Card>
