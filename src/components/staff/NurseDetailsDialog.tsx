@@ -95,6 +95,11 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
   // Get patients assigned to this nurse (doctors only have permanent assignments)
   const nursePatients = getStaffPatients(nurse.id.toString());
 
+  // Helper function to check if patient is discharged
+  const isPatientDischarged = (patient: Patient | null): boolean => {
+    return patient?.status === 'discharged';
+  };
+
   // Mock data - in real app, this would come from API
   const [vitalSigns, setVitalSigns] = useState<Record<string, VitalSigns[]>>({});
   const [medicationAdministrations, setMedicationAdministrations] = useState<Record<string, MedicationAdministration[]>>({});
@@ -515,7 +520,7 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
               <Users className="h-4 w-4" />
               My Patients ({nursePatients.length})
             </TabsTrigger>
-            <TabsTrigger value="vitals" disabled={!selectedPatient} className="gap-2">
+            <TabsTrigger value="vitals" disabled={!selectedPatient || isPatientDischarged(selectedPatient)} className="gap-2">
               <Activity className="h-4 w-4" />
               Vital Signs
             </TabsTrigger>
@@ -523,11 +528,11 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
               <FileText className="h-4 w-4" />
               Records
             </TabsTrigger>
-            <TabsTrigger value="condition" disabled={!selectedPatient} className="gap-2">
+            <TabsTrigger value="condition" disabled={!selectedPatient || isPatientDischarged(selectedPatient)} className="gap-2">
               <AlertCircle className="h-4 w-4" />
               Condition Report
             </TabsTrigger>
-            <TabsTrigger value="medications" disabled={!selectedPatient} className="gap-2">
+            <TabsTrigger value="medications" disabled={!selectedPatient || isPatientDischarged(selectedPatient)} className="gap-2">
               <Pill className="h-4 w-4" />
               Medications
             </TabsTrigger>
@@ -662,6 +667,14 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
                         <Activity className="h-5 w-5" />
                         Record Vital Signs
                       </CardTitle>
+                      {isPatientDischarged(selectedPatient) && (
+                        <Alert>
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertDescription>
+                            This patient has been discharged. Vital signs recording is now disabled.
+                          </AlertDescription>
+                        </Alert>
+                      )}
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <div className="grid grid-cols-2 gap-4">
@@ -769,7 +782,7 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
 
                       <Button 
                         onClick={handleSaveVitals} 
-                        disabled={isUpdating}
+                        disabled={isUpdating || isPatientDischarged(selectedPatient)}
                         className="w-full"
                       >
                         {isUpdating ? (
@@ -780,7 +793,7 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
                         ) : (
                           <>
                             <Save className="h-4 w-4 mr-2" />
-                            Record Vital Signs
+                            {isPatientDischarged(selectedPatient) ? 'Patient Discharged - Read Only' : 'Record Vital Signs'}
                           </>
                         )}
                       </Button>
@@ -1157,6 +1170,14 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
                         <AlertCircle className="h-5 w-5" />
                         Report Condition Change
                       </CardTitle>
+                      {isPatientDischarged(selectedPatient) && (
+                        <Alert>
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertDescription>
+                            This patient has been discharged. Condition reporting is now disabled.
+                          </AlertDescription>
+                        </Alert>
+                      )}
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <div className="grid grid-cols-2 gap-4">
@@ -1316,7 +1337,7 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
 
                       <Button 
                         onClick={handleSaveConditionReport} 
-                        disabled={isUpdating}
+                        disabled={isUpdating || isPatientDischarged(selectedPatient)}
                         className="w-full"
                       >
                         {isUpdating ? (
@@ -1327,7 +1348,7 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
                         ) : (
                           <>
                             <Save className="h-4 w-4 mr-2" />
-                            Submit Report to Doctor
+                            {isPatientDischarged(selectedPatient) ? 'Patient Discharged - Read Only' : 'Submit Report to Doctor'}
                           </>
                         )}
                       </Button>
@@ -1475,11 +1496,20 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
                         variant="outline" 
                         size="sm"
                         className="gap-2"
+                        disabled={isPatientDischarged(selectedPatient)}
                       >
                         <Activity className="h-4 w-4" />
                         Refresh
                       </Button>
                     </div>
+                    {isPatientDischarged(selectedPatient) && (
+                      <Alert>
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription>
+                          This patient has been discharged. Medication administration is now disabled.
+                        </AlertDescription>
+                      </Alert>
+                    )}
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
@@ -1502,6 +1532,7 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
                                     onCheckedChange={(checked) => 
                                       handleMedicationAdministration(medication.id, checked as boolean)
                                     }
+                                    disabled={isPatientDischarged(selectedPatient)}
                                   />
                                   <div>
                                     <h4 className="font-semibold">{medication.medicationName}</h4>

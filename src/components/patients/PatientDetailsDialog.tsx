@@ -31,17 +31,18 @@ interface PatientDetailsDialogProps {
 }
 
 export function PatientDetailsDialog({ patient, open, onOpenChange }: PatientDetailsDialogProps) {
-  const { doctorNotes, rehabProgress } = useData();
+  const { doctorNotes, rehabProgress, getPatientDoctor } = useData();
   
   if (!patient) return null;
 
   const patientNotes = doctorNotes.filter(note => note.patientId === patient.id);
   const patientProgress = rehabProgress.filter(progress => progress.patientId === patient.id);
+  const assignedDoctor = getPatientDoctor(patient.id);
   
   // Calculate days since admission
-  const daysSinceAdmission = Math.floor(
+  const daysSinceAdmission = patient.admissionDate ? Math.floor(
     (new Date().getTime() - new Date(patient.admissionDate).getTime()) / (1000 * 60 * 60 * 24)
-  );
+  ) : 0;
 
   // Get latest progress
   const latestProgress = patientProgress.sort((a, b) => 
@@ -100,27 +101,33 @@ export function PatientDetailsDialog({ patient, open, onOpenChange }: PatientDet
                   <CardContent className="space-y-3">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Age:</span>
-                      <span className="font-medium">{patient.age} years old</span>
+                      <span className="font-medium">{patient.age || 'Not specified'} years old</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Room:</span>
-                      <span className="font-medium">#{patient.roomNumber}</span>
+                      <span className="font-medium">#{patient.roomNumber || 'Not assigned'}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Section:</span>
                       <span className="font-medium">
-                        {patient.ageGroup === 'youth' ? 'Youth (201-210)' : 'Adult (101-110)'}
+                        {patient.ageGroup === 'youth' ? 'Youth (201-210)' : 
+                         patient.ageGroup === 'adult' ? 'Adult (101-110)' : 'Not specified'}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Admitted:</span>
                       <span className="font-medium">
-                        {format(new Date(patient.admissionDate), 'MMM d, yyyy')}
+                        {patient.admissionDate ? 
+                          format(new Date(patient.admissionDate), 'MMM d, yyyy') : 
+                          'Not specified'
+                        }
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Days in care:</span>
-                      <span className="font-medium">{daysSinceAdmission} days</span>
+                      <span className="font-medium">
+                        {patient.admissionDate ? `${daysSinceAdmission} days` : 'Not specified'}
+                      </span>
                     </div>
                   </CardContent>
                 </Card>
@@ -130,36 +137,36 @@ export function PatientDetailsDialog({ patient, open, onOpenChange }: PatientDet
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <Activity className="h-4 w-4" />
-                      Assigned Staff
+                      Assigned Doctor
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {assignedStaff ? (
+                    {assignedDoctor ? (
                       <div className="space-y-3">
                         <div className="flex items-center gap-3">
                           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary text-secondary-foreground font-semibold">
-                            {assignedStaff.name.split(' ').map(n => n[0]).join('')}
+                            {assignedDoctor.name.split(' ').map(n => n[0]).join('')}
                           </div>
                           <div>
-                            <p className="font-medium">{assignedStaff.name}</p>
+                            <p className="font-medium">{assignedDoctor.name}</p>
                             <p className="text-sm text-muted-foreground capitalize">
-                              {assignedStaff.role}
+                              {assignedDoctor.role}
                             </p>
                           </div>
                         </div>
                         <div className="space-y-2 pt-2 border-t">
                           <div className="flex items-center gap-2 text-sm">
                             <Mail className="h-3 w-3 text-muted-foreground" />
-                            <span>{assignedStaff.email}</span>
+                            <span>{assignedDoctor.email}</span>
                           </div>
                           <div className="flex items-center gap-2 text-sm">
                             <Phone className="h-3 w-3 text-muted-foreground" />
-                            <span>{assignedStaff.phone}</span>
+                            <span>{assignedDoctor.phone}</span>
                           </div>
                         </div>
                       </div>
                     ) : (
-                      <p className="text-muted-foreground">No staff assigned today</p>
+                      <p className="text-muted-foreground">No doctor assigned</p>
                     )}
                   </CardContent>
                 </Card>
@@ -174,7 +181,9 @@ export function PatientDetailsDialog({ patient, open, onOpenChange }: PatientDet
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-foreground leading-relaxed">{patient.condition}</p>
+                  <p className="text-foreground leading-relaxed">
+                    {patient.condition || patient.medicalCondition || 'No medical condition specified'}
+                  </p>
                 </CardContent>
               </Card>
 
@@ -306,7 +315,7 @@ export function PatientDetailsDialog({ patient, open, onOpenChange }: PatientDet
                     <div>
                       <h4 className="font-medium mb-2">Treatment Focus</h4>
                       <p className="text-sm text-muted-foreground">
-                        Based on the patient's condition: {patient.condition}
+                        Based on the patient's condition: {patient.condition || patient.medicalCondition || 'Not specified'}
                       </p>
                     </div>
                     <div>

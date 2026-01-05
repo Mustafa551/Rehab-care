@@ -97,8 +97,8 @@ export function PatientCard({ patient, assignedDoctor, onClick }: PatientCardPro
           </div>
         )}
 
-        {/* Discharge Button */}
-        {!isCheckingDischarge && isReadyForDischarge && (
+        {/* Discharge Button - Only show if patient is not discharged and is ready for discharge */}
+        {!isCheckingDischarge && isReadyForDischarge && patient.status !== 'discharged' && (
           <div className="pt-3 border-t border-border">
             <DischargeDialog
               patient={patient}
@@ -115,6 +115,15 @@ export function PatientCard({ patient, assignedDoctor, onClick }: PatientCardPro
                 </Button>
               }
             />
+          </div>
+        )}
+
+        {/* Discharged Status Badge */}
+        {patient.status === 'discharged' && (
+          <div className="pt-3 border-t border-border">
+            <Badge variant="secondary" className="w-full justify-center bg-gray-100 text-gray-700">
+              Patient Discharged
+            </Badge>
           </div>
         )}
       </CardContent>

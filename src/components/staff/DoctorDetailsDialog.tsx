@@ -100,6 +100,11 @@ export function DoctorDetailsDialog({ doctor, trigger }: DoctorDetailsDialogProp
     patient.assignedDoctorId === doctor.id
   );
 
+  // Helper function to check if patient is discharged
+  const isPatientDischarged = (patient: Patient | null): boolean => {
+    return patient?.status === 'discharged';
+  };
+
   const [doctorResponses, setDoctorResponses] = useState<Record<string, string>>({});
   const [nurseReportsCache, setNurseReportsCache] = useState<Record<string, any[]>>({});
   const [patientConditionsCache, setPatientConditionsCache] = useState<Record<string, any>>({});
@@ -521,7 +526,7 @@ export function DoctorDetailsDialog({ doctor, trigger }: DoctorDetailsDialogProp
               <Users className="h-4 w-4" />
               My Patients ({doctorPatients.length})
             </TabsTrigger>
-            <TabsTrigger value="condition" disabled={!selectedPatient} className="gap-2">
+            <TabsTrigger value="condition" disabled={!selectedPatient || isPatientDischarged(selectedPatient)} className="gap-2">
               <FileText className="h-4 w-4" />
               Patient Condition
             </TabsTrigger>
@@ -1035,10 +1040,23 @@ export function DoctorDetailsDialog({ doctor, trigger }: DoctorDetailsDialogProp
                             <Pill className="h-5 w-5" />
                             Medications
                           </CardTitle>
-                          <Button onClick={handleAddMedication} size="sm" variant="outline">
+                          <Button 
+                            onClick={handleAddMedication} 
+                            size="sm" 
+                            variant="outline"
+                            disabled={isPatientDischarged(selectedPatient)}
+                          >
                             Add Medication
                           </Button>
                         </div>
+                        {isPatientDischarged(selectedPatient) && (
+                          <Alert>
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertDescription>
+                              This patient has been discharged. Medical records are now read-only.
+                            </AlertDescription>
+                          </Alert>
+                        )}
                       </CardHeader>
                       <CardContent className="space-y-4">
                         {conditionForm.medications.length === 0 ? (
@@ -1153,7 +1171,7 @@ export function DoctorDetailsDialog({ doctor, trigger }: DoctorDetailsDialogProp
                     {/* Save Button */}
                     <Button 
                       onClick={handleSaveCondition} 
-                      disabled={isUpdating}
+                      disabled={isUpdating || isPatientDischarged(selectedPatient)}
                       className="w-full"
                       size="lg"
                     >
@@ -1165,7 +1183,7 @@ export function DoctorDetailsDialog({ doctor, trigger }: DoctorDetailsDialogProp
                       ) : (
                         <>
                           <Save className="h-4 w-4 mr-2" />
-                          Save Patient Assessment
+                          {isPatientDischarged(selectedPatient) ? 'Patient Discharged - Read Only' : 'Save Patient Assessment'}
                         </>
                       )}
                     </Button>
