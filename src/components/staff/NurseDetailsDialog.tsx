@@ -207,12 +207,33 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
     
     // Validate required fields
     if (!vitalForm.bloodPressure || !vitalForm.heartRate || !vitalForm.temperature) {
-      toast.error('Please fill in all required vital signs');
+      toast.error('Please fill in all required vital signs (Blood Pressure, Heart Rate, Temperature)');
+      return;
+    }
+
+    // Validate blood pressure format
+    const bpRegex = /^\d{2,3}\/\d{2,3}$/;
+    if (!bpRegex.test(vitalForm.bloodPressure)) {
+      toast.error('Blood pressure must be in format XXX/XX (e.g., 120/80)');
+      return;
+    }
+
+    // Validate heart rate (should be a number)
+    if (isNaN(Number(vitalForm.heartRate)) || Number(vitalForm.heartRate) < 30 || Number(vitalForm.heartRate) > 200) {
+      toast.error('Heart rate must be a number between 30 and 200');
+      return;
+    }
+
+    // Validate temperature (should be a number)
+    if (isNaN(Number(vitalForm.temperature)) || Number(vitalForm.temperature) < 90 || Number(vitalForm.temperature) > 110) {
+      toast.error('Temperature must be a number between 90 and 110°F');
       return;
     }
 
     setIsUpdating(true);
     try {
+      console.log('Recording vital signs for patient:', selectedPatient.name);
+      
       await createVitalSigns({
         patientId: Number(selectedPatient.id),
         date: vitalForm.date,
@@ -225,6 +246,8 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
         notes: vitalForm.notes,
         recordedBy: nurse.name,
       });
+      
+      console.log('Vital signs recorded successfully');
       
       // Refresh vital signs cache
       await getPatientVitals(selectedPatient);
@@ -241,9 +264,10 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
         notes: ''
       });
       
-      toast.success('Vital signs recorded successfully');
+      toast.success(`Vital signs recorded successfully for ${selectedPatient.name}`);
     } catch (error) {
-      toast.error('Failed to record vital signs');
+      console.error('Failed to record vital signs:', error);
+      toast.error('Failed to record vital signs. Please try again.');
     } finally {
       setIsUpdating(false);
     }
@@ -638,51 +662,70 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
 
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label htmlFor="bp">Blood Pressure *</Label>
+                          <Label htmlFor="bp">Blood Pressure * <span className="text-xs text-muted-foreground">(e.g., 120/80)</span></Label>
                           <Input
                             id="bp"
                             value={vitalForm.bloodPressure}
                             onChange={(e) => setVitalForm(prev => ({ ...prev, bloodPressure: e.target.value }))}
                             placeholder="120/80"
+                            pattern="\d{2,3}/\d{2,3}"
                             required
+                            className="focus:ring-2 focus:ring-blue-500"
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="hr">Heart Rate * (bpm)</Label>
+                          <Label htmlFor="hr">Heart Rate * <span className="text-xs text-muted-foreground">(30-200 bpm)</span></Label>
                           <Input
                             id="hr"
+                            type="number"
+                            min="30"
+                            max="200"
                             value={vitalForm.heartRate}
                             onChange={(e) => setVitalForm(prev => ({ ...prev, heartRate: e.target.value }))}
                             placeholder="72"
                             required
+                            className="focus:ring-2 focus:ring-blue-500"
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="temp">Temperature * (°F)</Label>
+                          <Label htmlFor="temp">Temperature * <span className="text-xs text-muted-foreground">(90-110°F)</span></Label>
                           <Input
                             id="temp"
+                            type="number"
+                            step="0.1"
+                            min="90"
+                            max="110"
                             value={vitalForm.temperature}
                             onChange={(e) => setVitalForm(prev => ({ ...prev, temperature: e.target.value }))}
                             placeholder="98.6"
                             required
+                            className="focus:ring-2 focus:ring-blue-500"
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="o2">Oxygen Saturation (%)</Label>
+                          <Label htmlFor="o2">Oxygen Saturation <span className="text-xs text-muted-foreground">(70-100%)</span></Label>
                           <Input
                             id="o2"
+                            type="number"
+                            min="70"
+                            max="100"
                             value={vitalForm.oxygenSaturation}
                             onChange={(e) => setVitalForm(prev => ({ ...prev, oxygenSaturation: e.target.value }))}
                             placeholder="98"
+                            className="focus:ring-2 focus:ring-blue-500"
                           />
                         </div>
                         <div className="space-y-2 col-span-2">
-                          <Label htmlFor="rr">Respiratory Rate (breaths/min)</Label>
+                          <Label htmlFor="rr">Respiratory Rate <span className="text-xs text-muted-foreground">(8-40 breaths/min)</span></Label>
                           <Input
                             id="rr"
+                            type="number"
+                            min="8"
+                            max="40"
                             value={vitalForm.respiratoryRate}
                             onChange={(e) => setVitalForm(prev => ({ ...prev, respiratoryRate: e.target.value }))}
                             placeholder="16"
+                            className="focus:ring-2 focus:ring-blue-500"
                           />
                         </div>
                       </div>

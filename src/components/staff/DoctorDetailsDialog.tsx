@@ -87,7 +87,8 @@ export function DoctorDetailsDialog({ doctor, trigger }: DoctorDetailsDialogProp
     createPatientConditionAPI,
     getLatestPatientCondition,
     createMedicationAPI,
-    getMedicationsByPatient
+    getMedicationsByPatient,
+    getVitalSignsByPatient
   } = useData();
   const [open, setOpen] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
@@ -102,6 +103,7 @@ export function DoctorDetailsDialog({ doctor, trigger }: DoctorDetailsDialogProp
   const [doctorResponses, setDoctorResponses] = useState<Record<string, string>>({});
   const [nurseReportsCache, setNurseReportsCache] = useState<Record<string, any[]>>({});
   const [patientConditionsCache, setPatientConditionsCache] = useState<Record<string, any>>({});
+  const [vitalSignsCache, setVitalSignsCache] = useState<Record<string, any[]>>({});
   
   const [conditionForm, setConditionForm] = useState<PatientConditionUpdate>({
     date: new Date().toISOString().split('T')[0],
@@ -144,6 +146,21 @@ export function DoctorDetailsDialog({ doctor, trigger }: DoctorDetailsDialogProp
     }
   };
 
+  const loadPatientVitalSigns = async (patient: Patient) => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const vitals = await getVitalSignsByPatient(Number(patient.id), today);
+      setVitalSignsCache(prev => ({
+        ...prev,
+        [patient.id.toString()]: vitals
+      }));
+      return vitals;
+    } catch (error) {
+      console.error('Failed to load patient vital signs:', error);
+      return [];
+    }
+  };
+
   const getPatientNurseReports = (patientId: string) => {
     return nurseReportsCache[patientId] || [];
   };
@@ -157,12 +174,18 @@ export function DoctorDetailsDialog({ doctor, trigger }: DoctorDetailsDialogProp
     return patientConditionsCache[patientId] || null;
   };
 
+  const getLatestVitalSigns = (patientId: string) => {
+    const vitals = vitalSignsCache[patientId] || [];
+    return vitals.length > 0 ? vitals[0] : null;
+  };
+
   // Load data for all patients on mount
   useEffect(() => {
     const loadAllPatientData = async () => {
       for (const patient of doctorPatients) {
         await loadPatientReports(patient);
         await loadPatientCondition(patient);
+        await loadPatientVitalSigns(patient);
       }
     };
     
@@ -178,6 +201,7 @@ export function DoctorDetailsDialog({ doctor, trigger }: DoctorDetailsDialogProp
     // Load patient data
     await loadPatientReports(patient);
     const existingCondition = await loadPatientCondition(patient);
+    const latestVitals = await loadPatientVitalSigns(patient);
     
     // Load existing condition data or initialize new
     if (existingCondition) {
@@ -186,7 +210,12 @@ export function DoctorDetailsDialog({ doctor, trigger }: DoctorDetailsDialogProp
         condition: existingCondition.condition || patient.medicalCondition || patient.condition || 'General assessment needed',
         notes: existingCondition.notes || '',
         medications: existingCondition.medications || [],
-        vitals: existingCondition.vitals || {},
+        vitals: existingCondition.vitals || (latestVitals.length > 0 ? {
+          bloodPressure: latestVitals[0].bloodPressure,
+          heartRate: latestVitals[0].heartRate,
+          temperature: latestVitals[0].temperature,
+          oxygenSaturation: latestVitals[0].oxygenSaturation
+        } : {}),
         dischargeRecommendation: existingCondition.dischargeRecommendation || 'continue',
         dischargeNotes: existingCondition.dischargeNotes || ''
       });
@@ -196,7 +225,12 @@ export function DoctorDetailsDialog({ doctor, trigger }: DoctorDetailsDialogProp
         condition: patient.medicalCondition || patient.condition || 'General assessment needed',
         notes: '',
         medications: [],
-        vitals: {},
+        vitals: latestVitals.length > 0 ? {
+          bloodPressure: latestVitals[0].bloodPressure,
+          heartRate: latestVitals[0].heartRate,
+          temperature: latestVitals[0].temperature,
+          oxygenSaturation: latestVitals[0].oxygenSaturation
+        } : {},
         dischargeRecommendation: 'continue',
         dischargeNotes: ''
       });
@@ -770,10 +804,21 @@ export function DoctorDetailsDialog({ doctor, trigger }: DoctorDetailsDialogProp
                     {/* Vital Signs - Read Only for Doctors */}
                     <Card>
                       <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                          <Activity className="h-5 w-5" />
-                          Latest Vital Signs (View Only)
-                        </CardTitle>
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="flex items-center gap-2">
+                            <Activity className="h-5 w-5" />
+                            Latest Vital Signs (View Only)
+                          </CardTitle>
+                          <Button 
+                            onClick={() => loadPatientVitalSigns(selectedPatient)} 
+                            variant="outline" 
+                            size="sm"
+                            className="gap-2"
+                          >
+                            <Activity className="h-4 w-4" />
+                            Refresh
+                          </Button>
+                        </div>
                       </CardHeader>
                       <CardContent className="space-y-4">
                         <Alert>
@@ -783,44 +828,126 @@ export function DoctorDetailsDialog({ doctor, trigger }: DoctorDetailsDialogProp
                           </AlertDescription>
                         </Alert>
                         
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label>Blood Pressure</Label>
-                            <Input
-                              value={conditionForm.vitals?.bloodPressure || 'Not recorded'}
-                              disabled
-                              className="bg-muted"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Heart Rate</Label>
-                            <Input
-                              value={conditionForm.vitals?.heartRate || 'Not recorded'}
-                              disabled
-                              className="bg-muted"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Temperature</Label>
-                            <Input
-                              value={conditionForm.vitals?.temperature || 'Not recorded'}
-                              disabled
-                              className="bg-muted"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Oxygen Saturation</Label>
-                            <Input
-                              value={conditionForm.vitals?.oxygenSaturation || 'Not recorded'}
-                              disabled
-                              className="bg-muted"
-                            />
-                          </div>
-                        </div>
-                        
-                        <p className="text-xs text-muted-foreground">
-                          Last updated by nursing staff. Contact nurses for current vital signs.
-                        </p>
+                        {(() => {
+                          const latestVitals = getLatestVitalSigns(selectedPatient.id.toString());
+                          
+                          if (!latestVitals) {
+                            return (
+                              <div className="text-center py-8">
+                                <Activity className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                                <p className="text-muted-foreground">No vital signs recorded yet.</p>
+                                <p className="text-sm text-muted-foreground mt-2">
+                                  Nurses will record vital signs that will appear here.
+                                </p>
+                              </div>
+                            );
+                          }
+                          
+                          return (
+                            <>
+                              <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                  <Label>Blood Pressure</Label>
+                                  <Input
+                                    value={latestVitals.bloodPressure || 'Not recorded'}
+                                    disabled
+                                    className="bg-muted cursor-not-allowed"
+                                    readOnly
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label>Heart Rate (bpm)</Label>
+                                  <Input
+                                    value={latestVitals.heartRate ? `${latestVitals.heartRate} bpm` : 'Not recorded'}
+                                    disabled
+                                    className="bg-muted cursor-not-allowed"
+                                    readOnly
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label>Temperature (°F)</Label>
+                                  <Input
+                                    value={latestVitals.temperature ? `${latestVitals.temperature}°F` : 'Not recorded'}
+                                    disabled
+                                    className="bg-muted cursor-not-allowed"
+                                    readOnly
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label>Oxygen Saturation (%)</Label>
+                                  <Input
+                                    value={latestVitals.oxygenSaturation ? `${latestVitals.oxygenSaturation}%` : 'Not recorded'}
+                                    disabled
+                                    className="bg-muted cursor-not-allowed"
+                                    readOnly
+                                  />
+                                </div>
+                                {latestVitals.respiratoryRate && (
+                                  <div className="space-y-2 col-span-2">
+                                    <Label>Respiratory Rate (breaths/min)</Label>
+                                    <Input
+                                      value={`${latestVitals.respiratoryRate} breaths/min`}
+                                      disabled
+                                      className="bg-muted cursor-not-allowed"
+                                      readOnly
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                              
+                              <div className="text-xs text-muted-foreground bg-blue-50 p-3 rounded-lg">
+                                <div className="flex items-center gap-2">
+                                  <Clock className="h-4 w-4" />
+                                  <span>
+                                    Last recorded: {latestVitals.date} at {latestVitals.time} by {latestVitals.recordedBy}
+                                  </span>
+                                </div>
+                                {latestVitals.notes && (
+                                  <div className="mt-2">
+                                    <span className="font-medium">Notes:</span> {latestVitals.notes}
+                                  </div>
+                                )}
+                              </div>
+                              
+                              {/* Vital Signs History for Doctor */}
+                              <div className="mt-4">
+                                <div className="flex items-center justify-between mb-3">
+                                  <h4 className="text-sm font-medium text-muted-foreground">Recent Vital Signs History</h4>
+                                  <Badge variant="outline" className="text-xs">
+                                    Last 5 recordings
+                                  </Badge>
+                                </div>
+                                <div className="space-y-2 max-h-48 overflow-y-auto">
+                                  {(() => {
+                                    const recentVitals = (vitalSignsCache[selectedPatient.id.toString()] || [])
+                                      .slice(0, 5); // Show last 5 recordings
+                                    
+                                    if (recentVitals.length <= 1) {
+                                      return (
+                                        <p className="text-xs text-muted-foreground text-center py-2">
+                                          No additional vital signs history available
+                                        </p>
+                                      );
+                                    }
+                                    
+                                    return recentVitals.slice(1).map((vital, index) => (
+                                      <div key={vital.id} className="flex items-center justify-between p-2 bg-gray-50 rounded text-xs">
+                                        <div className="flex items-center gap-4">
+                                          <span className="font-medium">{vital.date} {vital.time}</span>
+                                          <span>BP: {vital.bloodPressure}</span>
+                                          <span>HR: {vital.heartRate}</span>
+                                          <span>Temp: {vital.temperature}°F</span>
+                                          {vital.oxygenSaturation && <span>O2: {vital.oxygenSaturation}%</span>}
+                                        </div>
+                                        <span className="text-muted-foreground">{vital.recordedBy}</span>
+                                      </div>
+                                    ));
+                                  })()}
+                                </div>
+                              </div>
+                            </>
+                          );
+                        })()}
                       </CardContent>
                     </Card>
                   </div>
