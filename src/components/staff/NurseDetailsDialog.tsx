@@ -230,6 +230,9 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
       return;
     }
 
+    // Ensure time is set, default to current time if empty
+    const timeToSend = vitalForm.time || new Date().toTimeString().slice(0, 5);
+
     setIsUpdating(true);
     try {
       console.log('Recording vital signs for patient:', selectedPatient.name);
@@ -237,7 +240,7 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
       await createVitalSigns({
         patientId: Number(selectedPatient.id),
         date: vitalForm.date,
-        time: vitalForm.time,
+        time: timeToSend,
         bloodPressure: vitalForm.bloodPressure,
         heartRate: vitalForm.heartRate,
         temperature: vitalForm.temperature,
@@ -276,25 +279,42 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
   const handleSaveConditionReport = async () => {
     if (!selectedPatient) return;
     
-    // Validate required fields
+    // Enhanced validation
     if (!conditionForm.conditionUpdate.trim()) {
       toast.error('Please describe the condition update');
       return;
     }
 
+    if (conditionForm.conditionUpdate.trim().length < 10) {
+      toast.error('Condition update must be at least 10 characters long');
+      return;
+    }
+
+    if (conditionForm.urgency === 'high' && !conditionForm.notes.trim()) {
+      toast.error('High urgency reports require additional notes');
+      return;
+    }
+
+    // Ensure time is set, default to current time if empty
+    const timeToSend = conditionForm.time || new Date().toTimeString().slice(0, 5);
+
     setIsUpdating(true);
     try {
+      console.log('Submitting condition report for patient:', selectedPatient.name);
+      
       await createNurseReportAPI({
         patientId: Number(selectedPatient.id),
         reportedBy: nurse.name,
         date: conditionForm.date,
-        time: conditionForm.time,
-        conditionUpdate: conditionForm.conditionUpdate,
+        time: timeToSend,
+        conditionUpdate: conditionForm.conditionUpdate.trim(),
         symptoms: conditionForm.symptoms,
         painLevel: conditionForm.painLevel,
-        notes: conditionForm.notes,
+        notes: conditionForm.notes.trim(),
         urgency: conditionForm.urgency,
       });
+      
+      console.log('Condition report submitted successfully');
       
       // Refresh reports cache
       await getPatientReports(selectedPatient);
@@ -310,13 +330,14 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
         urgency: 'medium'
       });
       
-      toast.success('Condition report submitted to doctor');
+      toast.success(`Condition report submitted to doctor for ${selectedPatient.name}`);
       
       if (conditionForm.urgency === 'high') {
         toast.warning('High urgency report - Doctor will be notified immediately');
       }
     } catch (error) {
-      toast.error('Failed to submit condition report');
+      console.error('Failed to submit condition report:', error);
+      toast.error('Failed to submit condition report. Please try again.');
     } finally {
       setIsUpdating(false);
     }
@@ -654,12 +675,13 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="time">Time</Label>
+                          <Label htmlFor="time">Time <span className="text-xs text-muted-foreground">(optional - defaults to current time)</span></Label>
                           <Input
                             id="time"
                             type="time"
                             value={vitalForm.time}
                             onChange={(e) => setVitalForm(prev => ({ ...prev, time: e.target.value }))}
+                            placeholder="Current time will be used if empty"
                           />
                         </div>
                       </div>
@@ -1148,26 +1170,41 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="conditionTime">Time</Label>
+                          <Label htmlFor="conditionTime">Time <span className="text-xs text-muted-foreground">(optional - defaults to current time)</span></Label>
                           <Input
                             id="conditionTime"
                             type="time"
                             value={conditionForm.time}
                             onChange={(e) => setConditionForm(prev => ({ ...prev, time: e.target.value }))}
+                            placeholder="Current time will be used if empty"
                           />
                         </div>
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="conditionUpdate">Condition Update *</Label>
+                        <Label htmlFor="conditionUpdate">Condition Update * <span className="text-xs text-muted-foreground">(min. 10 characters)</span></Label>
                         <Textarea
                           id="conditionUpdate"
                           value={conditionForm.conditionUpdate}
                           onChange={(e) => setConditionForm(prev => ({ ...prev, conditionUpdate: e.target.value }))}
-                          placeholder="Describe the patient's current condition, any changes observed..."
+                          placeholder="Describe the patient's current condition, any changes observed, behavior, appetite, mobility, etc..."
                           rows={4}
                           required
+                          className={`focus:ring-2 focus:ring-blue-500 ${
+                            conditionForm.conditionUpdate.length > 0 && conditionForm.conditionUpdate.length < 10 
+                              ? 'border-red-300 focus:border-red-500' 
+                              : ''
+                          }`}
                         />
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                          <span>
+                            {conditionForm.conditionUpdate.length < 10 && conditionForm.conditionUpdate.length > 0
+                              ? `Need ${10 - conditionForm.conditionUpdate.length} more characters`
+                              : 'Provide detailed observations'
+                            }
+                          </span>
+                          <span>{conditionForm.conditionUpdate.length} characters</span>
+                        </div>
                       </div>
 
                       <div className="space-y-2">
@@ -1214,26 +1251,67 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
                             setConditionForm(prev => ({ ...prev, urgency: value }))
                           }
                         >
-                          <SelectTrigger>
+                          <SelectTrigger className={`focus:ring-2 ${
+                            conditionForm.urgency === 'high' ? 'border-red-300 focus:border-red-500' :
+                            conditionForm.urgency === 'medium' ? 'border-yellow-300 focus:border-yellow-500' :
+                            'border-green-300 focus:border-green-500'
+                          }`}>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="low">Low - Routine follow-up</SelectItem>
-                            <SelectItem value="medium">Medium - Doctor review needed</SelectItem>
-                            <SelectItem value="high">High - Immediate attention required</SelectItem>
+                            <SelectItem value="low" className="text-green-700">
+                              <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                                Low - Routine follow-up
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="medium" className="text-yellow-700">
+                              <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
+                                Medium - Doctor review needed
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="high" className="text-red-700">
+                              <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                                High - Immediate attention required
+                              </div>
+                            </SelectItem>
                           </SelectContent>
                         </Select>
+                        {conditionForm.urgency === 'high' && (
+                          <div className="text-xs text-red-600 bg-red-50 p-2 rounded">
+                            ⚠️ High urgency reports require additional notes and will notify the doctor immediately.
+                          </div>
+                        )}
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="conditionNotes">Additional Notes</Label>
+                        <Label htmlFor="conditionNotes">
+                          Additional Notes
+                          {conditionForm.urgency === 'high' && <span className="text-red-500"> *</span>}
+                        </Label>
                         <Textarea
                           id="conditionNotes"
                           value={conditionForm.notes}
                           onChange={(e) => setConditionForm(prev => ({ ...prev, notes: e.target.value }))}
-                          placeholder="Any additional observations, patient concerns, or recommendations..."
-                          rows={3}
+                          placeholder={
+                            conditionForm.urgency === 'high' 
+                              ? "High urgency reports require detailed notes. Describe what makes this urgent, immediate concerns, actions taken..."
+                              : "Any additional observations, patient concerns, or recommendations..."
+                          }
+                          rows={conditionForm.urgency === 'high' ? 4 : 3}
+                          className={`focus:ring-2 focus:ring-blue-500 ${
+                            conditionForm.urgency === 'high' && !conditionForm.notes.trim()
+                              ? 'border-red-300 focus:border-red-500'
+                              : ''
+                          }`}
                         />
+                        {conditionForm.urgency === 'high' && !conditionForm.notes.trim() && (
+                          <div className="text-xs text-red-600">
+                            Additional notes are required for high urgency reports
+                          </div>
+                        )}
                       </div>
 
                       <Button 

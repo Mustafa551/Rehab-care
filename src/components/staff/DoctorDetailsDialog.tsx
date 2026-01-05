@@ -643,115 +643,188 @@ export function DoctorDetailsDialog({ doctor, trigger }: DoctorDetailsDialogProp
                     {/* Nurse Reports Section */}
                     <Card>
                       <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                          <AlertCircle className="h-5 w-5" />
-                          Nurse Condition Reports
-                        </CardTitle>
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="flex items-center gap-2">
+                            <AlertCircle className="h-5 w-5" />
+                            Nurse Condition Reports
+                          </CardTitle>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline">
+                              {getPatientNurseReports(selectedPatient.id.toString()).length} total
+                            </Badge>
+                            <Badge variant="destructive" className="text-xs">
+                              {getUnreviewedReports(selectedPatient.id.toString()).length} pending
+                            </Badge>
+                            <Button 
+                              onClick={() => loadPatientReports(selectedPatient)} 
+                              variant="outline" 
+                              size="sm"
+                              className="gap-2"
+                            >
+                              <Activity className="h-4 w-4" />
+                              Refresh
+                            </Button>
+                          </div>
+                        </div>
                       </CardHeader>
                       <CardContent className="space-y-4">
                         {getPatientNurseReports(selectedPatient.id.toString()).length === 0 ? (
-                          <p className="text-muted-foreground text-center py-4">
-                            No condition reports from nursing staff yet.
-                          </p>
+                          <div className="text-center py-8">
+                            <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                            <h3 className="text-lg font-medium text-foreground mb-2">No Reports Yet</h3>
+                            <p className="text-muted-foreground text-center">
+                              No condition reports from nursing staff yet.
+                            </p>
+                            <p className="text-sm text-muted-foreground mt-2">
+                              Nurses will submit condition updates that will appear here.
+                            </p>
+                          </div>
                         ) : (
                           <div className="space-y-4 max-h-96 overflow-y-auto">
                             {getPatientNurseReports(selectedPatient.id.toString())
                               .sort((a, b) => `${b.date}T${b.time}`.localeCompare(`${a.date}T${a.time}`))
-                              .map((report) => (
-                                <Card key={report.id} className={`p-4 ${!report.reviewedByDoctor ? 'border-orange-200 bg-orange-50' : ''}`}>
-                                  <div className="space-y-3">
-                                    <div className="flex items-center justify-between">
-                                      <div className="flex items-center gap-2">
-                                        <span className="font-medium text-sm">
-                                          {new Date(report.date).toLocaleDateString()} {report.time}
-                                        </span>
-                                        <Badge 
-                                          variant={
-                                            report.urgency === 'high' ? 'destructive' :
-                                            report.urgency === 'medium' ? 'default' : 'secondary'
-                                          }
-                                          className="text-xs"
-                                        >
-                                          {report.urgency} urgency
+                              .map((report) => {
+                                const isUrgent = report.urgency === 'high';
+                                const isUnreviewed = !report.reviewedByDoctor;
+                                
+                                return (
+                                  <Card 
+                                    key={report.id} 
+                                    className={`p-4 transition-all hover:shadow-md ${
+                                      isUnreviewed ? 'border-orange-200 bg-orange-50' : 
+                                      isUrgent ? 'border-red-200 bg-red-50' : ''
+                                    }`}
+                                  >
+                                    <div className="space-y-3">
+                                      <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                          <span className="font-medium text-sm">
+                                            {new Date(report.date).toLocaleDateString('en-US', {
+                                              weekday: 'short',
+                                              month: 'short',
+                                              day: 'numeric'
+                                            })} {report.time}
+                                          </span>
+                                          <Badge 
+                                            variant={
+                                              report.urgency === 'high' ? 'destructive' :
+                                              report.urgency === 'medium' ? 'default' : 'secondary'
+                                            }
+                                            className="text-xs"
+                                          >
+                                            {report.urgency} urgency
+                                          </Badge>
+                                          {isUnreviewed && (
+                                            <Badge variant="outline" className="text-xs bg-yellow-100 text-yellow-800">
+                                              New
+                                            </Badge>
+                                          )}
+                                        </div>
+                                        <Badge variant={report.reviewedByDoctor ? 'default' : 'outline'}>
+                                          {report.reviewedByDoctor ? 'Reviewed' : 'Needs Review'}
                                         </Badge>
                                       </div>
-                                      <Badge variant={report.reviewedByDoctor ? 'default' : 'outline'}>
-                                        {report.reviewedByDoctor ? 'Reviewed' : 'Needs Review'}
-                                      </Badge>
-                                    </div>
-                                    
-                                    <div>
-                                      <p className="text-sm font-medium">Condition Update:</p>
-                                      <p className="text-sm text-muted-foreground">{report.conditionUpdate}</p>
-                                    </div>
-
-                                    {report.symptoms.length > 0 && (
+                                      
                                       <div>
-                                        <p className="text-sm font-medium">Symptoms:</p>
-                                        <div className="flex flex-wrap gap-1 mt-1">
-                                          {report.symptoms.map(symptom => (
-                                            <Badge key={symptom} variant="outline" className="text-xs">
-                                              {symptom}
-                                            </Badge>
-                                          ))}
+                                        <p className="text-sm font-medium">Condition Update:</p>
+                                        <p className="text-sm text-muted-foreground">{report.conditionUpdate}</p>
+                                      </div>
+
+                                      {report.symptoms.length > 0 && (
+                                        <div>
+                                          <p className="text-sm font-medium">Symptoms:</p>
+                                          <div className="flex flex-wrap gap-1 mt-1">
+                                            {report.symptoms.map(symptom => (
+                                              <Badge key={symptom} variant="outline" className="text-xs">
+                                                {symptom}
+                                              </Badge>
+                                            ))}
+                                          </div>
                                         </div>
-                                      </div>
-                                    )}
+                                      )}
 
-                                    {report.painLevel !== undefined && report.painLevel > 0 && (
-                                      <div>
-                                        <p className="text-sm font-medium">Pain Level: {report.painLevel}/10</p>
-                                      </div>
-                                    )}
+                                      {report.painLevel !== undefined && report.painLevel > 0 && (
+                                        <div className="flex items-center gap-2">
+                                          <p className="text-sm font-medium">Pain Level:</p>
+                                          <div className="flex items-center gap-1">
+                                            <span className="font-bold text-lg">{report.painLevel}/10</span>
+                                            <div className="flex">
+                                              {[...Array(10)].map((_, i) => (
+                                                <div
+                                                  key={i}
+                                                  className={`w-2 h-2 rounded-full mr-1 ${
+                                                    i < report.painLevel ? 'bg-red-500' : 'bg-gray-200'
+                                                  }`}
+                                                />
+                                              ))}
+                                            </div>
+                                          </div>
+                                        </div>
+                                      )}
 
-                                    {report.notes && (
-                                      <div>
-                                        <p className="text-sm font-medium">Notes:</p>
-                                        <p className="text-sm text-muted-foreground italic">{report.notes}</p>
-                                      </div>
-                                    )}
+                                      {report.notes && (
+                                        <div>
+                                          <p className="text-sm font-medium">Notes:</p>
+                                          <p className="text-sm text-muted-foreground italic bg-gray-50 p-2 rounded">
+                                            "{report.notes}"
+                                          </p>
+                                        </div>
+                                      )}
 
-                                    <div className="text-xs text-muted-foreground">
-                                      Reported by {report.reportedBy}
+                                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                        <span>Reported by {report.reportedBy}</span>
+                                        <span>
+                                          {(() => {
+                                            const reportTime = new Date(`${report.date}T${report.time}`);
+                                            const now = new Date();
+                                            const diffHours = Math.floor((now.getTime() - reportTime.getTime()) / (1000 * 60 * 60));
+                                            
+                                            if (diffHours < 1) return 'Just reported';
+                                            if (diffHours < 24) return `${diffHours} hours ago`;
+                                            const diffDays = Math.floor(diffHours / 24);
+                                            return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+                                          })()}
+                                        </span>
+                                      </div>
+
+                                      {report.doctorResponse && (
+                                        <div className="mt-3 p-3 bg-blue-50 rounded-lg border-l-4 border-blue-400">
+                                          <p className="text-sm font-medium text-blue-900">Your Response:</p>
+                                          <p className="text-sm text-blue-800">{report.doctorResponse}</p>
+                                        </div>
+                                      )}
+
+                                      {!report.reviewedByDoctor && (
+                                        <div className="space-y-2 pt-2 border-t">
+                                          <Label htmlFor={`response-${report.id}`} className="text-sm font-medium">
+                                            Doctor Response: <span className="text-red-500">*</span>
+                                          </Label>
+                                          <Textarea
+                                            id={`response-${report.id}`}
+                                            value={doctorResponses[report.id] || ''}
+                                            onChange={(e) => setDoctorResponses(prev => ({
+                                              ...prev,
+                                              [report.id]: e.target.value
+                                            }))}
+                                            placeholder="Provide instructions, medication changes, or follow-up notes..."
+                                            rows={3}
+                                            className="text-sm"
+                                          />
+                                          <Button
+                                            onClick={() => handleReviewReport(report.id, doctorResponses[report.id] || '')}
+                                            size="sm"
+                                            disabled={!doctorResponses[report.id]?.trim()}
+                                            className="w-full"
+                                          >
+                                            <CheckCircle className="h-4 w-4 mr-2" />
+                                            Review & Respond
+                                          </Button>
+                                        </div>
+                                      )}
                                     </div>
-
-                                    {report.doctorResponse && (
-                                      <div className="mt-3 p-3 bg-blue-50 rounded-lg border-l-4 border-blue-400">
-                                        <p className="text-sm font-medium text-blue-900">Your Response:</p>
-                                        <p className="text-sm text-blue-800">{report.doctorResponse}</p>
-                                      </div>
-                                    )}
-
-                                    {!report.reviewedByDoctor && (
-                                      <div className="space-y-2 pt-2 border-t">
-                                        <Label htmlFor={`response-${report.id}`} className="text-sm font-medium">
-                                          Doctor Response:
-                                        </Label>
-                                        <Textarea
-                                          id={`response-${report.id}`}
-                                          value={doctorResponses[report.id] || ''}
-                                          onChange={(e) => setDoctorResponses(prev => ({
-                                            ...prev,
-                                            [report.id]: e.target.value
-                                          }))}
-                                          placeholder="Provide instructions, medication changes, or follow-up notes..."
-                                          rows={2}
-                                          className="text-sm"
-                                        />
-                                        <Button
-                                          onClick={() => handleReviewReport(report.id, doctorResponses[report.id] || '')}
-                                          size="sm"
-                                          disabled={!doctorResponses[report.id]?.trim()}
-                                          className="w-full"
-                                        >
-                                          <CheckCircle className="h-4 w-4 mr-2" />
-                                          Review & Respond
-                                        </Button>
-                                      </div>
-                                    )}
-                                  </div>
-                                </Card>
-                              ))}
+                                  </Card>
+                                );
+                              })}
                           </div>
                         )}
                       </CardContent>
