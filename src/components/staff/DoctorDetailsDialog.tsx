@@ -268,6 +268,85 @@ export function DoctorDetailsDialog({ doctor, trigger }: DoctorDetailsDialogProp
     }
   };
 
+  // Function to create medication administrations for prescribed medications
+  const createMedicationAdministrations = async (patient: Patient, medications: PatientMedication[]) => {
+    try {
+      for (const medication of medications) {
+        if (!medication.name.trim()) continue;
+        
+        console.log('Creating medication and administrations for:', medication.name);
+        
+        // First create the medication record
+        const createdMedication = await createMedicationAPI({
+          patientId: Number(patient.id),
+          medicationName: medication.name,
+          dosage: medication.dosage,
+          frequency: medication.frequency,
+          startDate: medication.startDate,
+          endDate: medication.endDate,
+          notes: medication.notes,
+          prescribedBy: doctor.name,
+        });
+
+        console.log('Created medication:', createdMedication);
+
+        // Then create administration schedules based on frequency
+        const today = new Date().toISOString().split('T')[0];
+        const administrationTimes = getAdministrationTimes(medication.frequency);
+        
+        console.log('Creating administration schedules for times:', administrationTimes);
+        
+        for (const time of administrationTimes) {
+          try {
+            const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1'}/medications/administrations`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                medicationId: createdMedication.id,
+                patientId: Number(patient.id),
+                scheduledTime: time,
+                date: today,
+                notes: `Scheduled administration for ${medication.name}`,
+              }),
+            });
+            
+            if (!response.ok) {
+              const errorText = await response.text();
+              console.error(`Failed to create administration schedule for ${medication.name} at ${time}:`, errorText);
+            } else {
+              const result = await response.json();
+              console.log(`Created administration schedule for ${medication.name} at ${time}:`, result);
+            }
+          } catch (error) {
+            console.error(`Failed to create administration schedule for ${medication.name} at ${time}:`, error);
+          }
+        }
+      }
+      
+      toast.success('Medications prescribed and scheduled for nursing administration');
+    } catch (error) {
+      console.error('Failed to create medication administrations:', error);
+      toast.error('Failed to schedule medication administrations');
+    }
+  };
+
+  // Helper function to determine administration times based on frequency
+  const getAdministrationTimes = (frequency: string): string[] => {
+    const freq = frequency.toLowerCase();
+    
+    if (freq.includes('3') || freq.includes('three')) {
+      return ['08:00', '14:00', '20:00']; // 3 times daily
+    } else if (freq.includes('2') || freq.includes('two') || freq.includes('twice')) {
+      return ['08:00', '20:00']; // 2 times daily
+    } else if (freq.includes('4') || freq.includes('four')) {
+      return ['06:00', '12:00', '18:00', '24:00']; // 4 times daily
+    } else {
+      return ['08:00']; // Once daily (default)
+    }
+  };
+
   const handleUpdateMedication = (medicationId: string, field: keyof PatientMedication, value: string) => {
     setConditionForm(prev => ({
       ...prev,
@@ -293,10 +372,8 @@ export function DoctorDetailsDialog({ doctor, trigger }: DoctorDetailsDialogProp
       return;
     }
     
-    if (!conditionForm.date) {
-      toast.error('Please select an assessment date');
-      return;
-    }
+    // Use current date if no date is selected
+    const assessmentDate = conditionForm.date || new Date().toISOString().split('T')[0];
     
     setIsUpdating(true);
     try {
@@ -304,7 +381,7 @@ export function DoctorDetailsDialog({ doctor, trigger }: DoctorDetailsDialogProp
       const conditionData = {
         patientId: Number(selectedPatient.id),
         assessedBy: doctor.name,
-        date: conditionForm.date,
+        date: assessmentDate,
         condition: conditionForm.condition.trim(),
         notes: conditionForm.notes || '',
         medications: conditionForm.medications || [],
@@ -316,6 +393,13 @@ export function DoctorDetailsDialog({ doctor, trigger }: DoctorDetailsDialogProp
       console.log('Sending condition data:', conditionData); // Debug log
 
       const savedCondition = await createPatientConditionAPI(conditionData);
+      console.log('Saved condition:', savedCondition);
+      
+      // Create medication administrations for each prescribed medication
+      if (conditionForm.medications && conditionForm.medications.length > 0) {
+        console.log('Creating medication administrations for', conditionForm.medications.length, 'medications');
+        await createMedicationAdministrations(selectedPatient, conditionForm.medications);
+      }
       
       // Update local cache
       setPatientConditionsCache(prev => ({
@@ -330,7 +414,19 @@ export function DoctorDetailsDialog({ doctor, trigger }: DoctorDetailsDialogProp
       }
     } catch (error) {
       console.error('Failed to update patient condition:', error);
-      toast.error('Failed to update patient condition');
+      
+      // More specific error handling
+      if (error instanceof Error) {
+        if (error.message.includes('date')) {
+          toast.error('Invalid date format. Please check the assessment date.');
+        } else if (error.message.includes('required')) {
+          toast.error('Please fill in all required fields.');
+        } else {
+          toast.error(`Failed to update patient condition: ${error.message}`);
+        }
+      } else {
+        toast.error('Failed to update patient condition. Please try again.');
+      }
     } finally {
       setIsUpdating(false);
     }
@@ -774,11 +870,21 @@ export function DoctorDetailsDialog({ doctor, trigger }: DoctorDetailsDialogProp
                                     onChange={(e) => handleUpdateMedication(medication.id, 'dosage', e.target.value)}
                                     placeholder="Dosage (e.g., 500mg)"
                                   />
-                                  <Input
+                                  <Select
                                     value={medication.frequency}
-                                    onChange={(e) => handleUpdateMedication(medication.id, 'frequency', e.target.value)}
-                                    placeholder="Frequency (e.g., 2x daily)"
-                                  />
+                                    onValueChange={(value) => handleUpdateMedication(medication.id, 'frequency', value)}
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Select frequency" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="Once daily">Once daily</SelectItem>
+                                      <SelectItem value="Twice daily">Twice daily</SelectItem>
+                                      <SelectItem value="3 times daily">3 times daily</SelectItem>
+                                      <SelectItem value="4 times daily">4 times daily</SelectItem>
+                                      <SelectItem value="As needed">As needed</SelectItem>
+                                    </SelectContent>
+                                  </Select>
                                 </div>
                                 <Textarea
                                   value={medication.notes || ''}

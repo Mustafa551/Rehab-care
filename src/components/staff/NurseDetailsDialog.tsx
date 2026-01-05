@@ -146,15 +146,19 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
       urgency: 'medium'
     });
 
-    // Load patient data if not already cached
-    if (!vitalSignsCache[patient.id.toString()]) {
-      await getPatientVitals(patient);
-    }
-    if (!medicationAdministrationsCache[patient.id.toString()]) {
-      await getPatientMedications(patient);
-    }
-    if (!nurseReportsCache[patient.id.toString()]) {
-      await getPatientReports(patient);
+    // Always refresh patient data when selecting a patient
+    console.log('Loading fresh data for patient:', patient.name);
+    
+    try {
+      await Promise.all([
+        getPatientVitals(patient),
+        getPatientMedications(patient),
+        getPatientReports(patient)
+      ]);
+      console.log('Successfully loaded all patient data');
+    } catch (error) {
+      console.error('Error loading patient data:', error);
+      toast.error('Failed to load patient data');
     }
   };
 
@@ -1069,10 +1073,21 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
                 {/* Medications List */}
                 <Card>
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Pill className="h-5 w-5" />
-                      Today's Medications
-                    </CardTitle>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="flex items-center gap-2">
+                        <Pill className="h-5 w-5" />
+                        Today's Medications
+                      </CardTitle>
+                      <Button 
+                        onClick={() => getPatientMedications(selectedPatient)} 
+                        variant="outline" 
+                        size="sm"
+                        className="gap-2"
+                      >
+                        <Activity className="h-4 w-4" />
+                        Refresh
+                      </Button>
+                    </div>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
