@@ -85,7 +85,7 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
     getVitalSignsByPatient,
     getMedicationAdministrationsByPatient,
     administerMedicationAPI,
-    getUnreviewedReportsByPatientAPI
+    getNurseReportsByPatientAPI
   } = useData();
   const [open, setOpen] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
@@ -444,7 +444,7 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
 
   const getPatientReports = async (patient: Patient) => {
     try {
-      const reports = await getUnreviewedReportsByPatientAPI(Number(patient.id));
+      const reports = await getNurseReportsByPatientAPI(Number(patient.id));
       setNurseReportsCache(prev => ({
         ...prev,
         [patient.id.toString()]: reports
@@ -615,7 +615,7 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
                           <AlertCircle className="h-4 w-4 text-muted-foreground" />
                           <span className="text-muted-foreground">Reports:</span>
                           <span className="font-medium">
-                            {(nurseReportsCache[patient.id.toString()] || []).length} pending review
+                            {(nurseReportsCache[patient.id.toString()] || []).length} total
                           </span>
                         </div>
                       </CardContent>
@@ -1339,7 +1339,7 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
                         <FileText className="h-5 w-5" />
-                        Previous Reports
+                        All Condition Reports
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -1369,7 +1369,7 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
                                       </Badge>
                                     </div>
                                     <Badge variant={report.reviewedByDoctor ? 'default' : 'outline'}>
-                                      {report.reviewedByDoctor ? 'Reviewed' : 'Pending'}
+                                      {report.reviewedByDoctor ? 'Reviewed' : 'Pending Review'}
                                     </Badge>
                                   </div>
                                   
@@ -1609,7 +1609,7 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <AlertCircle className="h-5 w-5" />
-                    Condition Reports
+                    All Condition Reports
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -1618,7 +1618,7 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
                       total + (nurseReportsCache[patient.id.toString()] || []).length, 0
                     )}
                   </div>
-                  <p className="text-muted-foreground">Pending doctor review</p>
+                  <p className="text-muted-foreground">Total reports submitted</p>
                 </CardContent>
               </Card>
             </div>
@@ -1635,7 +1635,7 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
                     const todayVitals = getTodayVitals(patient);
                     const medications = medicationAdministrationsCache[patient.id.toString()] || [];
                     const administeredMeds = medications.filter(m => m.administered);
-                    const unreviewedReports = nurseReportsCache[patient.id.toString()] || [];
+                    const allReports = nurseReportsCache[patient.id.toString()] || [];
                     
                     return (
                       <div key={patient.id} className="flex items-center gap-3 p-3 rounded-lg border">
@@ -1648,7 +1648,7 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
                             <span>Room {patient.roomNumber}</span>
                             <span>Vitals: {todayVitals.length}</span>
                             <span>Meds: {administeredMeds.length}/{medications.length}</span>
-                            <span>Reports: {unreviewedReports.length} pending</span>
+                            <span>Reports: {allReports.length} total</span>
                           </div>
                         </div>
                         <Badge className={getStatusColor(vitalStatus)}>
