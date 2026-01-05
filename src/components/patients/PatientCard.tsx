@@ -6,6 +6,7 @@ import { User, MapPin, Calendar, Stethoscope, Receipt } from 'lucide-react';
 import { format } from 'date-fns';
 import { useData } from '@/contexts/DataContext';
 import { DischargeDialog } from './DischargeDialog';
+import { useState, useEffect } from 'react';
 
 interface PatientCardProps {
   patient: Patient;
@@ -15,7 +16,26 @@ interface PatientCardProps {
 
 export function PatientCard({ patient, assignedDoctor, onClick }: PatientCardProps) {
   const { isPatientReadyForDischarge } = useData();
-  const isReadyForDischarge = isPatientReadyForDischarge(patient.id.toString());
+  const [isReadyForDischarge, setIsReadyForDischarge] = useState(false);
+  const [isCheckingDischarge, setIsCheckingDischarge] = useState(true);
+
+  // Check discharge status on mount and when patient changes
+  useEffect(() => {
+    const checkDischargeStatus = async () => {
+      setIsCheckingDischarge(true);
+      try {
+        const ready = await isPatientReadyForDischarge(patient.id.toString());
+        setIsReadyForDischarge(ready);
+      } catch (error) {
+        console.error('Failed to check discharge status:', error);
+        setIsReadyForDischarge(false);
+      } finally {
+        setIsCheckingDischarge(false);
+      }
+    };
+
+    checkDischargeStatus();
+  }, [patient.id]); // Only depend on patient ID to avoid unnecessary re-renders
 
   const handleCardClick = (e: React.MouseEvent) => {
     // Don't trigger card click if clicking on discharge button
@@ -78,7 +98,7 @@ export function PatientCard({ patient, assignedDoctor, onClick }: PatientCardPro
         )}
 
         {/* Discharge Button */}
-        {isReadyForDischarge && (
+        {!isCheckingDischarge && isReadyForDischarge && (
           <div className="pt-3 border-t border-border">
             <DischargeDialog
               patient={patient}

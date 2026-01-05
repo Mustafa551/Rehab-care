@@ -383,6 +383,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const isPatientReadyForDischarge = async (patientId: string): Promise<boolean> => {
     try {
       const condition = await api.getLatestPatientCondition(Number(patientId));
+      console.log('fdsf',condition)
       return condition?.dischargeRecommendation === 'discharge';
     } catch (error) {
       console.error('Failed to check discharge status:', error);

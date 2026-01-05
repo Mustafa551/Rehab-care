@@ -84,7 +84,8 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
     createNurseReportAPI,
     getVitalSignsByPatient,
     getMedicationAdministrationsByPatient,
-    administerMedicationAPI
+    administerMedicationAPI,
+    getUnreviewedReportsByPatientAPI
   } = useData();
   const [open, setOpen] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
@@ -167,10 +168,10 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
       }
     };
     
-    if (nursePatients.length > 0) {
+    if (nursePatients.length > 0 && open) {
       loadPatientData();
     }
-  }, [nursePatients]);
+  }, [nursePatients.length, open]); // Only depend on length and open state
 
   const handleSaveVitals = async () => {
     if (!selectedPatient) return;
@@ -363,7 +364,7 @@ export function NurseDetailsDialog({ nurse, trigger }: NurseDetailsDialogProps) 
 
   const getPatientReports = async (patient: Patient) => {
     try {
-      const reports = await getUnreviewedReports(patient.id.toString());
+      const reports = await getUnreviewedReportsByPatientAPI(Number(patient.id));
       setNurseReportsCache(prev => ({
         ...prev,
         [patient.id.toString()]: reports

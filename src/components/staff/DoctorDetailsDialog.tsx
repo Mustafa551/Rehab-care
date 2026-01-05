@@ -166,10 +166,10 @@ export function DoctorDetailsDialog({ doctor, trigger }: DoctorDetailsDialogProp
       }
     };
     
-    if (doctorPatients.length > 0) {
+    if (doctorPatients.length > 0 && open) {
       loadAllPatientData();
     }
-  }, [doctorPatients]);
+  }, [doctorPatients.length, open]); // Only depend on length and open state
 
   const handlePatientSelect = async (patient: Patient) => {
     setSelectedPatient(patient);
